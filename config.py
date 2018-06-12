@@ -1,3 +1,13 @@
+import pyaudio
+
+# PYAUDIO CONFIGURATION
+CHUNK_SIZE 		= 441
+FORMAT 			= pyaudio.paInt16
+NUM_CHANNELS 	= 2
+SAMPLING_FREQ	= 44100
+DEVICE_INDEX 	= 2
+
+# LED CONFIGURATION
 LED_COUNT      = 20      # Number of LED pixels.
 LED_PIN        = 18      # GPIO pin connected to the pixels (18 uses PWM!).
 LED_FREQ_HZ    = 800000  # LED signal frequency in hertz (usually 800khz)
