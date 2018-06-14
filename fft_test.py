@@ -4,7 +4,23 @@ import numpy as np
 from matplotlib import pyplot as plt
 from config import *
 
-RECORD_SECONDS = 5
+RECORD_SECONDS = 10
+freqs = np.fft.fftfreq(CHUNK_SIZE)*float(SAMPLING_FREQ)
+
+def get_freq_for_sample(sample):
+    return np.abs(freqs[np.argmax(np.abs(np.fft.fft(sample)))])
+
+def get_val_for_freq(freq):
+    min_freq = 100
+    max_freq = 4000
+    n_steps  = 10
+    log_min_freq = np.log(min_freq)
+    log_max_freq = np.log(max_freq)
+    return int((np.log(np.clip(freq, min_freq, max_freq)) - log_min_freq)/log_max_freq * n_steps)
+
+def get_val_for_sample(sample):
+    return get_val_for_freq(get_freq_for_sample(sample))
+
 
 def main():
     p = pyaudio.PyAudio()
@@ -18,14 +34,17 @@ def main():
 
     ffts = []
     vols = []
+    vals = []
     print("* recording")
     for i in range(0, int(SAMPLING_FREQ / CHUNK_SIZE * RECORD_SECONDS)):
         start = time.time()
         string_data = stream.read(CHUNK_SIZE)
         print time.time() - start, '\t',
-        int_data    = np.fromstring(string_data, dtype="int16")
-        ffts.append(np.mean(np.abs(np.fft.fft(int_data)[:int(CHUNK_SIZE/2)])))
-        vols.append(np.mean(np.abs(int_data)))
+        int_data = np.fromstring(string_data, dtype="int16")
+        l_data, r_data = int_data.reshape((-1,2)).T
+        # ffts.append(np.abs(freqs[np.argmax(np.abs(np.fft.fft(l_data)))]))
+        # vols.append(np.mean(np.abs(l_data)))
+        vals.append(get_val_for_sample(l_data))
         print time.time() - start
         
     print("* done recording")
@@ -33,8 +52,9 @@ def main():
     stream.close()
     p.terminate()
 
-    plt.plot(ffts, label="FFT")
-    plt.plot(vols, label="Vol")
+    # plt.semilogy(ffts, label="FFT")
+    # plt.plot(vols, label="Vol")
+    plt.plot(vals, label="Val")
     plt.legend()
     plt.show()
     # string_data = b''.join(frames)
