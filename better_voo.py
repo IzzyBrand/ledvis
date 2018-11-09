@@ -5,6 +5,9 @@ import Adafruit_ADS1x15
 
 GAIN = 8
 NUM_SAMPLES = 5
+MAX_DROP = 1
+VOO_DROP = 30
+assert(LED_1_COUNT == LED_2_COUNT)
 
 # Create an ADC object
 adc = Adafruit_ADS1x15.ADS1015()
@@ -17,24 +20,28 @@ strip2 = Adafruit_NeoPixel(LED_2_COUNT, LED_2_PIN, LED_2_FREQ_HZ, LED_2_DMA, LED
 strip1.begin()
 strip2.begin()
 
-color = Color(50, 100, 200)
+
 off = Color(0,0,0)
 
+val = 0
 max_val = 0
 while True:
-    abs_val = 0
     for i in range(NUM_SAMPLES):
-        abs_val += abs(adc.get_last_result())
-    abs_val = abs_val/float(NUM_SAMPLES)
-    max_val = max(max_val, abs_val)
+        val = max(val, abs(adc.get_last_result()))
 
-    num_leds_on = LED_1_COUNT * abs_val/max_val
+    max_val = max(max_val, val)
+
+
+    num_leds_on = LED_1_COUNT/2 * val/max_val
     for i in range(LED_1_COUNT):
-        strip1.setPixelColor(i, color if i < num_leds_on else off)
-        strip2.setPixelColor(i, color if i < num_leds_on else off)
+        strip1.setPixelColor(i, Color(80, val/5, max_val/8) if abs(i - LED_1_COUNT/2) < num_leds_on else off)
+        strip2.setPixelColor(i, Color(80, val/5, max_val/8) if abs(i - LED_1_COUNT/2) < num_leds_on else off)
 
     strip1.show()
     time.sleep(0.005)
     strip2.show()
     time.sleep(0.005)
+
+    val -= VOO_DROP
+    max_val -= MAX_DROP
 

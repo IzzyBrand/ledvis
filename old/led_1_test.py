@@ -14,7 +14,7 @@ def colorWipe(strip, color, wait_ms=50):
 
 if __name__ == "__main__":
 	# Create NeoPixel object with appropriate configuration.
-	strip = Adafruit_NeoPixel(LED_COUNT*NUM_CHANNELS, LED_PIN, LED_FREQ_HZ, LED_DMA, LED_INVERT, LED_BRIGHTNESS, LED_CHANNEL)
+	strip = Adafruit_NeoPixel(LED_1_COUNT, LED_1_PIN, LED_1_FREQ_HZ, LED_1_DMA, LED_1_INVERT, LED_1_BRIGHTNESS, LED_1_CHANNEL)
 	# Intialize the library (must be called once before other functions).
 	strip.begin()
 	colors = [Color(255, 0, 0), Color(0, 255, 0), Color(0, 0, 255)]

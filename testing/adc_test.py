@@ -19,7 +19,7 @@ adc = Adafruit_ADS1x15.ADS1015()
 #  -  16 = +/-0.256V
 # See table 3 in the ADS1015/ADS1115 datasheet for more info on gain.
 GAIN = 8
-# adc.start_adc(0,gain=GAIN) # start continous sampling on pin 0
+adc.start_adc(0,gain=GAIN) # start continous sampling on pin 0
 
 print('Reading ADS1x15 values, press Ctrl-C to quit...')
 # Main loop
@@ -27,9 +27,9 @@ full = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 blank = "                                           "
 while True:
     start = time.time()
-    val = adc.read_adc_difference(0, gain=GAIN) # comparison of pins 0 and 1
+    # val = adc.read_adc_difference(0, gain=GAIN) # comparison of pins 0 and 1
     # val = adc.read_adc(0, gain=GAIN) # individual read
-    # val = adc.get_last_result() # continuous mode
+    val = adc.get_last_result() # continuous mode
     
     
     print "Freq {}\tVal {}".format(1/(time.time() -start), val)
