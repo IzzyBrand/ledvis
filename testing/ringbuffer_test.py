@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 
 """Simple example with numpy arrays."""
-
+import Adafruit_ADS1x15
 import multiprocessing
-
 import numpy
 import numpy.matlib
 import ringbuffer
 
 
+most_recent = 0.0
+
 def writer(ring):
-    for i in range(10000):
-        # m = numpy.matlib.randn(25, 100)
-        # x = numpy.ctypeslib.as_ctypes(m)
-        # print(m.shape,x)
-        x = numpy.random.rand(1)
+    adc = Adafruit_ADS1x15.ADS1015()
+    GAIN = 8
+    adc.start_adc(0,gain=GAIN) # start continous sampling on pin 0
+
+    for i in range(10):
+        most_recent = adc.get_last_result()
+        x = numpy.array(adc.get_last_result(), dtype=float)
         try:
             ring.try_write(numpy.ctypeslib.as_ctypes(x))
         except ringbuffer.WaitingForReaderError:
@@ -34,18 +37,17 @@ def reader(ring, pointer):
             data = ring.blocking_read(pointer)
         except ringbuffer.WriterFinishedError:
             return
+        # print(data)
+        # x = numpy.frombuffer(data)
+        # print(x)
+        print(most_recent)
 
-        x = numpy.frombuffer(data)
-        # x.shape = (25, 100)
-        # x[1, 1] = 1.1  # Verify it's mutable
-        # m = numpy.matlib.asmatrix(x)
-        # norm = numpy.linalg.norm(m)
-        print(x)
 
     print('Reader %r is done' % pointer)
 
 
 def main():
+    # size of an entry (8 bytes per float), size of the circular buffer
     ring = ringbuffer.RingBuffer(slot_bytes=8, slot_count=50)
     ring.new_writer()
 

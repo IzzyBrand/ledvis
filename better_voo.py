@@ -38,9 +38,9 @@ while True:
         strip2.setPixelColor(i, Color(80, val/5, max_val/8) if abs(i - LED_1_COUNT/2) < num_leds_on else off)
 
     strip1.show()
-    time.sleep(0.005)
+    time.sleep(LED_WRITE_DELAY)
     strip2.show()
-    time.sleep(0.005)
+    time.sleep(LED_WRITE_DELAY)
 
     val -= VOO_DROP
     max_val -= MAX_DROP

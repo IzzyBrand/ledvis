@@ -4,7 +4,7 @@ from config import *
 
 
 # Define functions which animate LEDs in various ways.
-def colorWipe(strip, color, wait_ms=50):
+def colorWipe(strip, color, wait_ms=5.0):
     """Wipe color across display a pixel at a time."""
     for i in range(strip.numPixels()):
         strip.setPixelColor(i, color)
@@ -20,4 +20,4 @@ if __name__ == "__main__":
 	colors = [Color(255, 0, 0), Color(0, 255, 0), Color(0, 0, 255)]
 	while True:
 		for color in colors:
-			colorWipe(strip, color, wait_ms=100)
+			colorWipe(strip, color, wait_ms=5.0)
