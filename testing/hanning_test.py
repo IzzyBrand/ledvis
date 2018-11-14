@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 duration = .1  # Duration in seconds
-signal_frequency = 100
+signal_frequency = 600
 sample_frequency = 1000
 
 # timesteps
