@@ -4,6 +4,7 @@ import numpy as np
 import time
 from neopixel import *
 from config import *
+from smoother import *
 
 SAMPLE_ARRAY_SIZE = 50
 SAMPLE_FREQUENCY = 3000
@@ -103,8 +104,9 @@ def sample_color(x):
 def visualizer(sample_array, led_array):
     max_amplitude = 0
     min_amplitude = 0
-    max_amplitude_contraction_rate = 0.1
-    min_amplitude_contraction_rate = 0.1
+    max_amplitude_contraction_rate = 0.01
+    min_amplitude_contraction_rate = 0.01
+    voo_smoother = ExponentialMovingAverageSpikePassSmoother(0.1)
 
     while True:
         sample_array.acquire()
@@ -115,20 +117,26 @@ def visualizer(sample_array, led_array):
         f = get_max_freq(a) # get the maximum frequency
         m = np.max(a[-10:]) # and the maximum amplitude
 
-        # visualizer stuff
+        # update the max and min bounds on the amplitude
         max_amplitude -= max_amplitude_contraction_rate
         max_amplitude = max(max_amplitude, m)
         min_amplitude += min_amplitude_contraction_rate
         min_amplitude = min(min_amplitude, max_amplitude - 1) # make sure the min doesn't exceed the max
         min_amplitude = min(min_amplitude, np.min(a))
 
-        num_leds_on = float(m - min_amplitude)/float(max_amplitude-min_amplitude) * LED_1_COUNT
+        m = float(m - min_amplitude)/float(max_amplitude-min_amplitude) # normalize the amplitude to [0,1]
+        m = voo_smoother(m) # and smooth it
 
+        num_leds_on = m * LED_1_COUNT # create a mask of which LEDS to turn on
         color_mask = np.tile(np.arange(LED_1_COUNT) < num_leds_on, (3,1)).T
+
         # freq_color = sample_color(f)
         freq_color = [100, 150, 200]
+
+        # create a linear color array to be sent to the LED_writer
         color_array = np.ravel(color_mask * freq_color).astype(int)
 
+        # send the color array to the LED_writer
         led_array.acquire()
         led_array[:] = color_array
         led_array.release()
