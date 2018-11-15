@@ -6,6 +6,8 @@ import numpy as np
 # SAMPLING_FREQ	= 44100  # Sampling frequency of incoming audio
 # DEVICE_INDEX 	= 2      # Which audio device to read from (listed in pyaudio_test.py)
 
+SAMPLE_ARRAY_SIZE = 50
+
 # LED STRIPS CONFIGURATION
 LED_1_COUNT      = 150     # Number of LED pixels.
 LED_1_PIN        = 18      # GPIO pin connected to the pixels (must support PWM! GPIO 13 and 18 on RPi 3).

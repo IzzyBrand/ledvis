@@ -24,5 +24,4 @@ class ExponentialMovingAverageSpikePassSmoother:
 
 		if x > var*5. + old_s:
 			self._s = x
-			print('SpikePass', (x - old_s)/var)
 		return self._s
