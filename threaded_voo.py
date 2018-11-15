@@ -2,6 +2,7 @@ from multiprocessing import Process, Array
 import Adafruit_ADS1x15
 import numpy as np
 import time
+import masker
 from neopixel import *
 from config import *
 from smoother import *
@@ -69,7 +70,6 @@ def led_writer(led_array):
         time.sleep(LED_WRITE_DELAY)
         strip2.show()
 
-
 def unloop(a):
     a_start = (a[-1] + 1) % (a.size - 1)
     return np.concatenate([a[a_start:-1], a[:a_start]])
@@ -106,7 +106,7 @@ def visualizer(sample_array, led_array):
     min_amplitude = 0
     max_amplitude_contraction_rate = 0.01
     min_amplitude_contraction_rate = 0.01
-    voo_smoother = ExponentialMovingAverageSpikePassSmoother(0.1)
+    voo_smoother = ExponentialMovingAverageSpikePassSmoother(0.05)
 
     while True:
         sample_array.acquire()
@@ -125,11 +125,9 @@ def visualizer(sample_array, led_array):
         min_amplitude = min(min_amplitude, np.min(a))
 
         m = float(m - min_amplitude)/float(max_amplitude-min_amplitude) # normalize the amplitude to [0,1]
-        m = voo_smoother(m) # and smooth it
+        m = voo_smoother.smooth(m) # and smooth it
 
-        num_leds_on = m * LED_1_COUNT # create a mask of which LEDS to turn on
-        color_mask = np.tile(np.arange(LED_1_COUNT) < num_leds_on, (3,1)).T
-
+        color_mask = masker.middle_out(m) # create a mask of which LEDS to turn on
         # freq_color = sample_color(f)
         freq_color = [100, 150, 200]
 

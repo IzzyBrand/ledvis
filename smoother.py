@@ -22,6 +22,7 @@ class ExponentialMovingAverageSpikePassSmoother:
 		self._ss = (self.alpha * x**2) + ((1. - self.alpha) * self._ss)
 		var = np.abs(self._ss - self._s**2)
 
-		if x > var + old_s:
+		if x > var*5. + old_s:
 			self._s = x
+			print('SpikePass', (x - old_s)/var)
 		return self._s
