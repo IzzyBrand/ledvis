@@ -72,7 +72,11 @@ def visualizer(sample_array, led_array):
     '''
     Create an array of colors to be displayed on the LED strips given an array of audio samples
     '''
-    voo = VooMeter() # this is the visualizer we will use
+    # this is the visualizer we will use
+    # voo = FFTGauss()
+    # voo = VooMeter()
+    voo = BlobSlider()
+
 
     while True:
         # get the newest sample array
