@@ -68,17 +68,22 @@ def led_writer(led_array):
         strip2.show()
 
 
-def visualizer(sample_array, led_array):
+def visualizer(sample_array, led_array, settings_array):
     '''
     Create an array of colors to be displayed on the LED strips given an array of audio samples
     '''
-    # this is the visualizer we will use
-    # voo = FFTGauss()
-    # voo = VooMeter()
-    voo = BlobSlider()
 
+    voos = [BlobSlider(), FFTGauss(), VooMeter()]
+    voo_index = 0
 
     while True:
+        
+        if settings_array.acquire():
+            voo_index = settings_array[0]
+            settings_array.release()
+
+        voo = voos[voo_index]
+
         # get the newest sample array
         sample_array.acquire()
         a = np.array(sample_array)
@@ -96,15 +101,27 @@ def visualizer(sample_array, led_array):
         led_array.release()
 
 
+def settings_getter(settings_array):
+    while True:
+        # do a get request to the server
+        url = 'localhost:5000/get_settings'
+        data = requests.get(url).json()
+        settings_array.acquire()
+        settings_array[0] = data['voo_index']
+        settings_array.release()
+        pass
+
 if __name__ == '__main__':
     led_array = Array('i', np.zeros(LED_1_COUNT * 3, dtype=int))
     sample_array = Array('i', np.zeros(SAMPLE_ARRAY_SIZE + 1, dtype=int))
+    settings_array = Array('i', np.zeros(1), dtype=int)
 
     sampler_process    = Process(target=sampler,    name='Sampler',    args=(sample_array,))
     led_writer_process = Process(target=led_writer, name='LED Writer', args=(led_array,))
-    visualizer_process = Process(target=visualizer, name='Visualizer', args=(sample_array, led_array))
+    visualizer_process = Process(target=visualizer, name='Visualizer', args=(sample_array, led_array, settings_array))
+    settings_process   = Process(target=visualizer, name='Settings Getter', args=(settings_array))
 
-    processes = [sampler_process, led_writer_process, visualizer_process]
+    processes = [sampler_process, led_writer_process, visualizer_process, settings_getter]
 
     for p in processes: p.start()
 
