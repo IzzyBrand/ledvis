@@ -63,7 +63,7 @@ class FFTGauss(Visualizer):
         self.num_bins = self.colors.shape[0]
         self.bin_size = float(LED_1_COUNT)/self.num_bins
         self.centers = (np.arange(self.num_bins) + 0.5) * self.bin_size
-        self.gaussians = np.vstack([gaussian(np.arange(LED_1_COUNT), mu, self.bin_size/6) for mu in self.centers])
+        self.gaussians = np.vstack([gaussian(np.arange(LED_1_COUNT), mu, self.bin_size) for mu in self.centers])
         self.color_gaussians = np.multiply(self.colors.T[:,:,None], self.gaussians)
 
     def visualize(self, sample_array):
@@ -124,6 +124,15 @@ class BlobSlider(Visualizer):
 
         colors = np.clip(colors, 0, 255).astype(int)
         return np.ravel(colors)
+
+
+class StripsOff(Visualizer):
+    def __init__(self):
+        Visualizer.__init__(self)
+
+    def visualize(self, sample_array):
+        return np.zeros(LED_1_COUNT * 3, dtype=int)
+
 
 ###################################################################################################
 # Experimental stuff

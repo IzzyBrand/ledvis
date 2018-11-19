@@ -1,0 +1,21 @@
+escape ``
+
+startup_message off
+
+# this hard status was stolen from the net, all credit goes to its originator
+hardstatus             alwayslastline
+#hardstatus string '%{= mK}%-Lw%{= KW}%50>%n%f* %t%{= mK}%+Lw%< %{= kG}%-=%D %d %M %Y %c:%s%{-}'
+hardstatus string '%{= kG}[ %{G}%H %{g}][%= %{= kw}%?%-Lw%?%{r}(%{W}%n*%f%t%?(%u)%?%{r})%{w}%?%+Lw%?%?%= %{g}][%{B} %d/%m %{W}%c %{g}]'
+
+# turn multiuser mode on so others can connect.
+multiuser on
+
+screen -t " open"
+
+screen -t " run.py"
+stuff "cd /home/pi/ledvis\n"
+stuff "sudo python run.py\n"
+
+screen -t " app.py"
+stuff "cd /home/pi/ledvis/web\n"
+stuff "python3 app.py\n"

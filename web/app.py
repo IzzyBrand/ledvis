@@ -1,5 +1,6 @@
 from flask import Flask, redirect, render_template, session, request
 import socket
+import json
 
 state = 0
 
@@ -19,7 +20,8 @@ def btn_click():
 
 @app.route('/get_settings', methods=['GET'])
 def get_settings():
-	return {'voo_index': state}
+	return json.dumps({'voo_index': state})
+
 
 if __name__ == '__main__':
 	app.run(host='0.0.0.0')

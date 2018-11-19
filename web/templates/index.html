@@ -1,33 +1,34 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<script src='/static/jquery.min.js'></script>
-	<script src='/static/popper.min.js'></script>
-	<script src='/static/bootstrap.min.js'></script>
-	<script src='/static/main.js'></script>
-	<link rel='stylesheet' href='/static/css/bootstrap.min.css'/>
+    <script src='/static/jquery.min.js'></script>
+    <script src='/static/popper.min.js'></script>
+    <script src='/static/bootstrap.min.js'></script>
+    <script src='/static/main.js'></script>
+    <link rel='stylesheet' href='/static/css/bootstrap.min.css'/>
 </head>
 <style>
 .slidecontainer {
     width: 100%;
 }
 .slider {
-	width: 90%;
+    width: 90%;
 }
 </style>
 <body>
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<center>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <center>
 
-	<div cla<!-- ss="slidecontainer">
-	  <input type="range" min="0" max="255" value="127" class="slider" id="brightnessSlider">
-	</div> -->
+    <!-- <div class="slidecontainer">
+      <input type="range" min="0" max="255" value="127" class="slider" id="brightnessSlider">
+    </div> -->
 
-	<div class="btn-group-vertical btn-block" role="group" aria-label="Choose your mode">
-    	<button type="button" class="btn btn-light btn-lg" onclick='btnClick(this, 0)'>BlobSlider</button>
-		<button type="button" class="btn btn-light btn-lg" onclick='btnClick(this, 1)'>VooMeter</button>
-		<button type="button" class="btn btn-light btn-lg" onclick='btnClick(this, 2)'>FFTGauss</button>
-	</div>
-	</center>
+    <div class="btn-group-vertical btn-block" role="group" aria-label="Choose your mode">
+        <button type="button" class="btn btn-dark btn-lg" onclick='btnClick(this, 0)'>Strips Off</button>
+        <button type="button" class="btn btn-light btn-lg" onclick='btnClick(this, 1)'>BlobSlider</button>
+        <button type="button" class="btn btn-light btn-lg" onclick='btnClick(this, 2)'>VooMeter</button>
+        <button type="button" class="btn btn-light btn-lg" onclick='btnClick(this, 3)'>FFTGauss</button>
+    </div>
+    </center>
 </body>
 </html>

@@ -3,6 +3,7 @@ import Adafruit_ADS1x15
 import numpy as np
 import time
 import masker
+import requests
 from neopixel import *
 from config import *
 from smoother import *
@@ -73,7 +74,7 @@ def visualizer(sample_array, led_array, settings_array):
     Create an array of colors to be displayed on the LED strips given an array of audio samples
     '''
 
-    voos = [BlobSlider(), FFTGauss(), VooMeter()]
+    voos = [StripsOff(), BlobSlider(), VooMeter(), FFTGauss()]
     voo_index = 0
 
     while True:
@@ -104,24 +105,36 @@ def visualizer(sample_array, led_array, settings_array):
 def settings_getter(settings_array):
     while True:
         # do a get request to the server
-        url = 'localhost:5000/get_settings'
-        data = requests.get(url).json()
-        settings_array.acquire()
-        settings_array[0] = data['voo_index']
-        settings_array.release()
-        pass
+        url = 'http://ledvis.local:5000/get_settings'
+
+        try:
+            response = requests.get(url)
+        except requests.ConnectionError:
+            print('Request failed.')
+            continue
+
+        if response.ok:
+            data = response.json()
+            voo_index = int(data['voo_index'])
+            settings_array.acquire()
+            settings_array[0] = voo_index
+            settings_array.release()
+        else:
+            print('Status Code {}'.format(response.status_code))
+
+        time.sleep(0.1)
 
 if __name__ == '__main__':
-    led_array = Array('i', np.zeros(LED_1_COUNT * 3, dtype=int))
-    sample_array = Array('i', np.zeros(SAMPLE_ARRAY_SIZE + 1, dtype=int))
-    settings_array = Array('i', np.zeros(1), dtype=int)
+    led_array       = Array('i', np.zeros(LED_1_COUNT * 3, dtype=int))
+    sample_array    = Array('i', np.zeros(SAMPLE_ARRAY_SIZE + 1, dtype=int))
+    settings_array  = Array('i', np.zeros(1, dtype=int))
 
-    sampler_process    = Process(target=sampler,    name='Sampler',    args=(sample_array,))
-    led_writer_process = Process(target=led_writer, name='LED Writer', args=(led_array,))
-    visualizer_process = Process(target=visualizer, name='Visualizer', args=(sample_array, led_array, settings_array))
-    settings_process   = Process(target=visualizer, name='Settings Getter', args=(settings_array))
+    sampler_process    = Process(target=sampler,         name='Sampler',         args=(sample_array,))
+    led_writer_process = Process(target=led_writer,      name='LED Writer',      args=(led_array,))
+    visualizer_process = Process(target=visualizer,      name='Visualizer',      args=(sample_array, led_array, settings_array))
+    settings_process   = Process(target=settings_getter, name='Settings Getter', args=(settings_array,))
 
-    processes = [sampler_process, led_writer_process, visualizer_process, settings_getter]
+    processes = [sampler_process, led_writer_process, visualizer_process, settings_process]
 
     for p in processes: p.start()
 
