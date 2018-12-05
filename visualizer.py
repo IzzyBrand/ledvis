@@ -4,24 +4,50 @@ import time
 from config import *
 from smoother import *
 
-class Visualizer:
-    def __init__(self):
-        self.init_max_amplitude = 1
-        self.init_min_amplitude = 0
-        self.max_amplitude = self.init_max_amplitude
-        self.min_amplitude = self.init_min_amplitude
-        self.max_amplitude_contraction_rate = 0.01
-        self.min_amplitude_contraction_rate = 0.01
 
-    def update_bounds(self, sample_array):
+class VisualizerBase:
+    '''
+    Base class for the visualizer. This structure takes in incoming audio data and generates
+    output colors for the LED strips
+    '''
+    def __init__(self):
+        self.name = self.__class__.__name__
+        self.init_max_amp = 1.
+        self.init_min_amp = 0.
+        self.max_amp = self.init_max_amp
+        self.min_amp = self.init_min_amp
+        self.max_amp_contraction_rate = 0.9999
+        self.min_amp_contraction_rate = 0.9999
+
+    def update_bounds(self, sample_array, constrain_bounds=False):
+        '''
+        Stores the minimum and maximum values observed in the sample data so far.
+
+        Args:
+            sample_array (np.array): the sample data
+            constrain_bounds (bool, optional): Description
+        '''
         if np.isinf(np.sum(sample_array)): return
-        self.max_amplitude -= self.max_amplitude_contraction_rate
-        self.max_amplitude = max(self.max_amplitude, np.max(sample_array), self.init_max_amplitude)
-        self.min_amplitude += self.min_amplitude_contraction_rate
-        self.min_amplitude = min(self.min_amplitude, np.min(sample_array), self.init_min_amplitude)
+
+        self.max_amp = self.min_amp + (self.max_amp - self.min_amp) * self.min_amp_contraction_rate
+        self.max_amp = max(self.max_amp, np.max(sample_array))
+        self.min_amp = self.max_amp - (self.max_amp - self.min_amp) * self.min_amp_contraction_rate
+        self.min_amp = min(self.min_amp, np.min(sample_array))
+
+        if constrain_bounds:
+            self.min_amp = min(self.min_amp, self.init_min_amp)
+            self.max_amp = max(self.max_amp, self.init_max_amp)
 
     def normalize(self, m):
-        return (m - self.min_amplitude)/(self.max_amplitude-self.min_amplitude)
+        return (m - self.min_amp)/(self.max_amp-self.min_amp)
+
+    def visualize(self, sample_array):
+        return np.zeros([LED_1_COUNT, 3], dtype=int)
+
+
+class ExampleVisualizer(VisualizerBase):
+    def __init__(self):
+        VisualizerBase.__init__(self)
 
     def visualize(self, sample_array):
         self.update_bounds(sample_array) # update the max and min observed sample
@@ -32,15 +58,20 @@ class Visualizer:
         color_channel = 255 * (np.arrange(LED_1_COUNT) == int(m * LED_1_COUNT))
 
         # there are three color channels. repeating the same array three times yields white
-        return np.concatenate([color_channel, color_channel, color_channel])
+        return np.vstack([color_channel, color_channel, color_channel]).T
 
 
-class VooMeter(Visualizer):
+class StripsOff(VisualizerBase):
+    def visualize(self, sample_array):
+        return np.zeros(LED_1_COUNT * 3, dtype=int)
+
+
+class VooMeter(VisualizerBase):
     def __init__(self, color=np.array([120, 200, 100]), mask_maker=masker.middle_out):
-        Visualizer.__init__(self)
+        VisualizerBase.__init__(self)
         self.color = color
         self.mask_maker = mask_maker
-        self.smoother = ExponentialMovingAverageSpikePassSmoother(0.1)
+        self.smoother = ExponentialMovingAverageSpikePass(0.1)
 
     def visualize(self, sample_array):
             self.update_bounds(sample_array)
@@ -51,13 +82,13 @@ class VooMeter(Visualizer):
 
             color_mask = self.mask_maker(m) # create a mask of which LEDS to turn on
 
-            # create a linear color array to be sent to the LED_writer
-            return np.ravel(color_mask * self.color).astype(int)
+            # create a color array to be sent to the LED_writer
+            return color_mask * self.color
 
 
-class FFTGauss(Visualizer):
+class FFTGauss(VisualizerBase):
     def __init__(self):
-        Visualizer.__init__(self)
+        VisualizerBase.__init__(self)
         self.hex_colors = ["7B00FF", "5255EE", "29AADD", "00FFCC", "4EFF88", "9CFF44", "EAFF00", "F1AA00", "F85500", "FF0000"]
         self.colors = np.array([hex_to_rgb(h) for h in self.hex_colors])[:,[1,0,2]]
         self.num_bins = self.colors.shape[0]
@@ -68,11 +99,12 @@ class FFTGauss(Visualizer):
 
     def visualize(self, sample_array):
         # decide how many elements from the FFT to use
-        n = int(sample_array.shape[0]/2.0) 
+        n = int(sample_array.shape[0]/2.0)
         n -= n % self.num_bins # make n divisible by the number of bins
 
         f = (np.abs(np.fft.fft(sample_array)[1:n+1])) # take the first n elements of the fft
         bin_activations = np.sum(f.reshape([self.num_bins,-1]), axis=1) # how much in each frequency bin
+        bin_activations = bin_activations
 
         # normalize the bin_activations
         self.update_bounds(bin_activations)
@@ -81,22 +113,53 @@ class FFTGauss(Visualizer):
         # multiple the each bin by its gaussian
         color_array = np.max(self.color_gaussians *  bin_activations[None, :, None], axis=1)
 
-        return np.ravel(color_array.T.astype(int))
+        return color_array.T
 
 
-class BlobSlider(Visualizer):
+class FFTGaussBeads(VisualizerBase):
     def __init__(self):
-        Visualizer.__init__(self)
-        self.blob_list = []
-        self.max_blob_count = 15
-        self.blob_prob = 0.01
-        self.prev_time = time.time()
-        self.blob_buffer = 10
-        self.smoother = ExponentialMovingAverageSpikePassSmoother(0.05)
-        self.init_max_amplitude = 100
+        VisualizerBase.__init__(self)
+        self.hex_colors = ["7B00FF", "5255EE", "29AADD", "00FFCC", "4EFF88", "9CFF44", "EAFF00", "F1AA00", "F85500", "FF0000"]
+        self.colors = np.array([hex_to_rgb(h) for h in self.hex_colors])[:,[1,0,2]]
+        self.num_bins = self.colors.shape[0]
+        self.bin_size = float(LED_1_COUNT)/self.num_bins
+        self.centers = (np.arange(self.num_bins) + 0.5) * self.bin_size
+        self.gaussians = np.vstack([gaussian(np.arange(LED_1_COUNT), mu, self.bin_size/4) for mu in self.centers])
+        self.color_gaussians = np.multiply(self.colors.T[:,:,None], self.gaussians)
+        self.max_amp_contraction_rate = 0.99
 
     def visualize(self, sample_array):
-        self.update_bounds(sample_array)
+        # decide how many elements from the FFT to use
+        n = int(sample_array.shape[0]/2.0)
+        n -= n % self.num_bins # make n divisible by the number of bins
+
+        f = (np.abs(np.fft.fft(sample_array)[1:n+1])) # take the first n elements of the fft
+        bin_activations = np.sum(f.reshape([self.num_bins,-1]), axis=1) # how much in each frequency bin
+        bin_activations = bin_activations**2
+
+        # normalize the bin_activations
+        self.update_bounds(bin_activations)
+        bin_activations = self.normalize(bin_activations)
+
+        # multiple the each bin by its gaussian
+        color_array = np.max(self.color_gaussians *  bin_activations[None, :, None], axis=1)
+
+        return color_array.T
+
+
+class BlobSlider(VisualizerBase):
+    def __init__(self):
+        VisualizerBase.__init__(self)
+        self.blob_list = []
+        self.max_blob_count = 15
+        self.blob_prob = 0.02
+        self.prev_time = time.time()
+        self.blob_buffer = 10
+        self.smoother = ExponentialMovingAverageSpikePass(0.05)
+        self.init_max_amp = 100
+
+    def visualize(self, sample_array):
+        self.update_bounds(sample_array, constrain_bounds=True)
         m = self.normalize(np.max(sample_array[-10]))
         m = self.smoother.smooth(m)
 
@@ -105,34 +168,106 @@ class BlobSlider(Visualizer):
         self.prev_time = new_time
 
 
-        if len(self.blob_list) < self.max_blob_count and np.random.rand() < self.blob_prob:
+        blob_count = len(self.blob_list)
+        if blob_count < self.max_blob_count and np.random.rand() < self.blob_prob/(blob_count + 1):
             new_blob = {
                 'color': [np.random.randint(10,100), np.random.randint(150,255), np.random.randint(10,120)],
-                'speed': np.clip(np.random.normal(8,6), 2, 10),
+                'speed': np.clip(np.random.normal(7,3), 2, 10),
                 'pos': -self.blob_buffer
             }
             self.blob_list.append(new_blob)
 
         # remove blobs that have gone off the end of the strip
         self.blob_list = [b for b in self.blob_list if b['pos'] < LED_1_COUNT + self.blob_buffer]
-        
-        colors = np.zeros([LED_1_COUNT, 3])
+
+        color_array = np.zeros([LED_1_COUNT, 3])
         x = np.arange(LED_1_COUNT)
         for blob in self.blob_list:
             blob['pos'] += dt * blob['speed']**(2*m + 0.5) # move the blobs
-            colors = np.maximum(colors, np.outer(gaussian(x, blob['pos'], 2.5), blob['color']))
+            color_array = np.maximum(color_array, np.outer(gaussian(x, blob['pos'], 2.5), blob['color']))
 
-        colors = np.clip(colors, 0, 255).astype(int)
+        return np.clip(color_array, 0, 255)
+
+
+class Zoom(VisualizerBase):
+    def __init__(self):
+        VisualizerBase.__init__(self)
+        self.stripe_list = []
+        self.prev_time = time.time()
+        self.zoom_rate = 1.
+        self.curr_color = 0
+
+        new_stripe = {
+            'color': np.random.randint(0,255,3),
+            'width': 1
+        }
+        self.stripe_list.append(new_stripe)
+
+    def visualize(self, sample_array):
+        self.update_bounds(sample_array)
+        m = self.normalize(np.max(sample_array[-10]))
+
+        new_time = time.time()
+        dt = new_time - self.prev_time
+        self.prev_time = new_time
+
+        colors = np.zeros([LED_1_COUNT, 3], dtype=int)
+
+        i = 0
+        count = 0
+        center = int(np.ceil(LED_1_COUNT/2))
+        top = LED_1_COUNT - center
+        for stripe in self.stripe_list:
+            stripe['width'] += self.zoom_rate * stripe['width'] * dt
+
+            w = int(stripe['width'])
+            j = min(top, w + i)
+            colors[center + i: center + j, :] = stripe['color']
+            colors[center - j: center - i, :] = stripe['color']
+
+            if j == top:
+                break
+            else:
+                i = j
+                count += 1
+
+        self.stripe_list = self.stripe_list[:count + 1]
+
+        if int(self.stripe_list[0]['width']) > 1:
+            new_stripe = {
+                'color': [np.random.randint(10,100), np.random.randint(150,255), np.random.randint(10,120)],
+                'width': 1
+            }
+            new_stripe['color'][self.curr_color] *= 0.2
+            self.curr_color = (self.curr_color + 1) % 3
+            self.stripe_list.insert(0, new_stripe)
+
         return np.ravel(colors)
 
 
-class StripsOff(Visualizer):
+class Sparkle(VisualizerBase):
     def __init__(self):
-        Visualizer.__init__(self)
+        VisualizerBase.__init__(self)
 
     def visualize(self, sample_array):
-        return np.zeros(LED_1_COUNT * 3, dtype=int)
+        a = sample_array[-8:]
+        self.update_bounds(a, constrain_bounds=False)
+        m = np.max(a) # get the maximum amplitude
+        m = self.normalize(m) # normalize the amplitude to [0,1]
+        m = max(m**3 * 0.5, - 0.05, 0.01)
+        mask = np.random.rand(LED_1_COUNT) < m
+        colors = np.random.randint(0,255, [LED_1_COUNT, 3])
+        return mask[:, None] * colors
 
+
+# this is the list of visualizers to be used by run.py and the web page
+vis_list = [StripsOff,
+            VooMeter,
+            FFTGauss,
+            FFTGaussBeads,
+            BlobSlider,
+            Zoom,
+            Sparkle]
 
 ###################################################################################################
 # Experimental stuff
@@ -151,7 +286,7 @@ def get_max_freq(a):
     '''
     Returns a value from [0,1] indicating the frequency ouf of the maximum
     measurable frequency
-    ''' 
+    '''
     A = abs(np.fft.fft(a))
     # the fourier transform is symmetric, so we can only use the first half
     return np.argmax(A[1:int(SAMPLE_ARRAY_SIZE/2)])/(SAMPLE_ARRAY_SIZE/2.0)
