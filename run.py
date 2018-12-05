@@ -7,7 +7,7 @@ import requests
 from neopixel import *
 from config import *
 from smoother import *
-from visualizer import *
+from visualizer import vis_list
 
 
 def sampler(sample_array):
@@ -19,6 +19,7 @@ def sampler(sample_array):
     adc.start_adc(ADC_CHANNEL, gain=ADC_GAIN) # start continous sampling
 
     sample_index = 0
+
     while True:
         # TODO(izzy): get the upper and lower bounds on the ADC so we can
         # handle negative numbers properly and not crop the sample range
@@ -32,6 +33,11 @@ def sampler(sample_array):
 
             sample_index += 1
             sample_index = sample_index % SAMPLE_ARRAY_SIZE
+
+    # here I was saving some sample data for testing offline
+    # a = np.array(samples)
+    # print 'Saving', a.shape, 'samples'
+    # np.save("sample_30s_3.txt", np.array(samples), allow_pickle=True)
 
 
 def led_writer(led_array):
@@ -74,16 +80,20 @@ def visualizer(sample_array, led_array, settings_array):
     Create an array of colors to be displayed on the LED strips given an array of audio samples
     '''
 
-    voos = [StripsOff(), BlobSlider(), VooMeter(), FFTGauss()]
-    voo_index = 0
+    voo_index = -1
+    new_voo_index = 0
 
     while True:
-        
+        # get the current selected mode
         if settings_array.acquire():
-            voo_index = settings_array[0]
+            new_voo_index = settings_array[0]
             settings_array.release()
 
-        voo = voos[voo_index]
+        # if the selected mode has changed, instantiate the new visualizer
+        if voo_index != new_voo_index:
+            voo_index = new_voo_index
+            vis = vis_list[voo_index]()
+            print('Mode changed to {}'.format(vis.name))
 
         # get the newest sample array
         sample_array.acquire()
@@ -94,7 +104,9 @@ def visualizer(sample_array, led_array, settings_array):
         a_start = (a[-1] + 1) % (a.size - 1)
         a = np.concatenate([a[a_start:-1], a[:a_start]])
 
-        color_array = voo.visualize(a) # create a linear color array to be sent to the LED_writer
+        # create a linear color array to be sent to the LED_writer
+        color_array = vis.visualize(a)
+        color_array = np.ravel(color_array.astype(int))
 
         # send the color array to the LED_writer
         led_array.acquire()
