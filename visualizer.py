@@ -16,8 +16,8 @@ class VisualizerBase:
         self.init_min_amp = 0.
         self.max_amp = self.init_max_amp
         self.min_amp = self.init_min_amp
-        self.max_amp_contraction_rate = 0.9999
-        self.min_amp_contraction_rate = 0.9999
+        self.max_amp_contraction_rate = 0.9995
+        self.min_amp_contraction_rate = 0.9995
 
     def update_bounds(self, sample_array, constrain_bounds=False):
         '''
@@ -63,7 +63,8 @@ class ExampleVisualizer(VisualizerBase):
 
 class StripsOff(VisualizerBase):
     def visualize(self, sample_array):
-        return np.zeros(LED_1_COUNT * 3, dtype=int)
+        color_array = np.zeros([LED_1_COUNT,3], dtype=int)
+        return color_array
 
 
 class VooMeter(VisualizerBase):
@@ -260,6 +261,155 @@ class Sparkle(VisualizerBase):
         return mask[:, None] * colors
 
 
+class Retro(VisualizerBase):
+    def __init__(self):
+        VisualizerBase.__init__(self)
+        self.color = np.array([75, 75, 10])
+        self.floater_color = np.array([40, 160, 230])
+        self.mask_maker = masker.bottom_up
+        self.smoother = ExponentialMovingAverage(0.2)
+        self.descent_rate = 0.008
+        self.fade_size = 20
+        self.fade = (np.arange(self.fade_size, dtype=float)/self.fade_size)[:,None]
+        self.floater = 0
+        self.max_maker = masker.bottom_up
+
+    def visualize(self, sample_array):
+            self.update_bounds(sample_array)
+
+            m = np.max(sample_array[-8:]) # get the maximum amplitude
+            m = self.normalize(m) # normalize the amplitude to [0,1]
+            m = np.log(self.smoother.smooth(np.exp(m+2)))-2 # and smooth it
+
+            color_mask = self.mask_maker(m) # create a mask of which LEDS to turn on
+            color_array = color_mask * self.color
+
+            self.floater = max(self.floater - self.descent_rate, m) # get the position of the floater
+            floater_index = max(int((LED_1_COUNT-1) * self.floater), self.fade_size) # make it an index
+
+            # and replace a stripe of colors below that index
+            i = floater_index - self.fade_size + 1
+            j = floater_index + 1
+            part_1 = (1 - self.fade) * color_array[i:j, :]
+            part_2 = self.fade * self.floater_color
+            color_array[i:j, :] =  part_1 + part_2
+            
+            return color_array
+
+
+class SamMode(VisualizerBase):
+    def __init__(self):
+        VisualizerBase.__init__(self)
+        self.counter = 0
+        self.t = time.time()
+
+    def visualize(self, sample_array):
+        tt = time.time()
+        dt = tt - self.t
+        self.t = tt
+        self.counter += dt * 3.
+        color_array = np.zeros([LED_1_COUNT,3], dtype=int)
+
+        half_way = int(np.floor(LED_1_COUNT/2.0))
+        indices = np.arange(half_way)/4. + self.counter
+        b = np.zeros(LED_1_COUNT)
+        b[:half_way] = indices
+        b[-half_way:] = np.flipud(indices)
+
+        color_array[:,2] = (np.sin(b) + 1) * 50.
+
+        return color_array
+
+
+class Pancakes(VisualizerBase):
+    def __init__(self):
+        VisualizerBase.__init__(self)
+        self.pancake_color = np.array([100, 50, 160])
+        self.color = np.array([50, 80, 0])
+
+        self.mask_maker = masker.bottom_up
+        self.smoother = ExponentialMovingAverageSpikePass(0.1, pass_coeff=20)
+
+        self.num_cakes = 10
+        self.positions = np.arange(self.num_cakes)
+        self.velocities = np.linspace(2, 0.1, self.num_cakes)
+
+        lam = (np.arange(self.num_cakes)/float(self.num_cakes))[:,None]
+
+        self.pancakes_colors = (1-lam) * self.color + lam * self.pancake_color
+
+    def visualize(self, sample_array):
+            self.update_bounds(sample_array)
+
+            m = np.max(sample_array[-8:]) # get the maximum amplitude
+            m = self.normalize(m) # normalize the amplitude to [0,1]
+            m = self.smoother.smooth(m) # and smooth it
+
+            new_pos = self.positions - self.velocities
+            lower_bound = np.arange(self.num_cakes)
+            level = int((LED_1_COUNT - self.num_cakes) * m)
+            levels = level + np.arange(self.num_cakes)
+
+            self.positions = np.max([new_pos, levels, lower_bound], axis=0)
+
+            color_mask = self.mask_maker(m) # create a mask of which LEDS to turn on
+            color_array = color_mask * self.color
+            color_array[self.positions.astype(int),:] = self.pancakes_colors
+
+            # create a color array to be sent to the LED_writer
+            return color_array
+
+class Stones(VisualizerBase):
+    def __init__(self):
+        VisualizerBase.__init__(self)
+        self.stone_color = np.array([150, 50, 50])
+        self.color = np.array([20, 20, 30])
+
+        self.mask_maker = masker.bottom_up
+        self.smoother = ExponentialMovingAverageSpikePass(0.1, pass_coeff=30)
+
+        self.num_stones = 5
+        self.positions = np.ones(self.num_stones)
+        self.velocities = np.zeros(self.num_stones)
+        self.accelerations = np.linspace(0.2, 0.8, self.num_stones)
+
+        self.prev_t = time.time()
+        self.prev_m = 0
+
+    def visualize(self, sample_array):
+            # update the time
+            t = time.time()
+            dt = t - self.prev_t
+            self.prev_t = t
+            sample_array = np.log(sample_array)
+            self.update_bounds(sample_array)
+            m = np.max(sample_array[-8:]) # get the maximum amplitude
+            m = self.normalize(m) # normalize the amplitude to [0,1]
+            m = self.smoother.smooth(m) # and smooth it
+            m = (10**m - 1)/20.
+
+            dm = m - self.prev_m
+            self.prev_m = m
+
+            new_vel = self.velocities - self.accelerations * dt # update the velocity
+            new_vel[(0 > self.positions)] = 0 # set to zero at the bottom
+            new_vel[(1 <= self.positions)] = -1e-3 # set to zero at the top
+            new_vel[(m > self.positions)] = max(0,dm/dt) * 0.1
+            self.velocities = new_vel
+
+            new_pos = self.positions + self.velocities * dt
+            self.positions = np.max([np.zeros(self.num_stones), m * np.ones(self.num_stones), new_pos], axis=0)
+            self.positions = np.min([np.ones(self.num_stones), self.positions], axis=0)
+
+
+            color_mask = self.mask_maker(m) # create a mask of which LEDS to turn on
+            color_array = color_mask * self.color
+            color_array[((LED_1_COUNT - 1) * self.positions).astype(int),:] = self.stone_color
+
+            # create a color array to be sent to the LED_writer
+            return color_array
+
+
 # this is the list of visualizers to be used by run.py and the web page
 vis_list = [StripsOff,
             VooMeter,
@@ -267,7 +417,11 @@ vis_list = [StripsOff,
             FFTGaussBeads,
             BlobSlider,
             Zoom,
-            Sparkle]
+            Sparkle,
+            Retro,
+            Pancakes,
+            SamMode,
+            Stones]
 
 ###################################################################################################
 # Experimental stuff
