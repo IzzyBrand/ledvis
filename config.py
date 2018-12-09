@@ -6,7 +6,7 @@ import numpy as np
 # SAMPLING_FREQ	= 44100  # Sampling frequency of incoming audio
 # DEVICE_INDEX 	= 2      # Which audio device to read from (listed in pyaudio_test.py)
 
-SAMPLE_ARRAY_SIZE = 250
+SAMPLE_ARRAY_SIZE = 500
 
 # LED STRIPS CONFIGURATION
 LED_1_COUNT      = 150     # Number of LED pixels.

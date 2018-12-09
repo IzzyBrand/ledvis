@@ -366,7 +366,7 @@ class Stones(VisualizerBase):
         self.color = np.array([20, 20, 30])
 
         self.mask_maker = masker.bottom_up
-        self.smoother = ExponentialMovingAverageSpikePass(0.1, pass_coeff=30)
+        self.smoother = ExponentialMovingAverage(0.4)
 
         self.num_stones = 5
         self.positions = np.ones(self.num_stones)
@@ -394,11 +394,11 @@ class Stones(VisualizerBase):
             new_vel = self.velocities - self.accelerations * dt # update the velocity
             new_vel[(0 > self.positions)] = 0 # set to zero at the bottom
             new_vel[(1 <= self.positions)] = -1e-3 # set to zero at the top
-            new_vel[(m > self.positions)] = max(0,dm/dt) * 0.1
+            new_vel[(m > self.positions)] = max(0,dm/dt) * 0.3
             self.velocities = new_vel
 
             new_pos = self.positions + self.velocities * dt
-            self.positions = np.max([np.zeros(self.num_stones), m * np.ones(self.num_stones), new_pos], axis=0)
+            self.positions = np.max([np.zeros(self.num_stones), m * np.ones(self.num_stones)+1e-3, new_pos], axis=0)
             self.positions = np.min([np.ones(self.num_stones), self.positions], axis=0)
 
 

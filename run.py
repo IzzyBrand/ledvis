@@ -2,12 +2,11 @@ from multiprocessing import Process, Array
 import Adafruit_ADS1x15
 import numpy as np
 import time
-import masker
 import requests
-from neopixel import *
 from config import *
 from smoother import *
 from visualizer import vis_list
+from strips import Strips
 
 
 def sampler(sample_array):
@@ -40,46 +39,12 @@ def sampler(sample_array):
     # np.save("sample_30s_3.txt", np.array(samples), allow_pickle=True)
 
 
-def led_writer(led_array):
-    '''
-    Write to the LED strips as fast as possible, publishing the newest value from the led_array.
-    The led_array is the individual colors for each for each of the pixels concatenated
-    '''
-    # Create NeoPixel object with appropriate configuration.
-    strip1 = Adafruit_NeoPixel(LED_1_COUNT, LED_1_PIN, LED_1_FREQ_HZ, LED_1_DMA, LED_1_INVERT, LED_1_BRIGHTNESS, LED_1_CHANNEL)
-    strip2 = Adafruit_NeoPixel(LED_2_COUNT, LED_2_PIN, LED_2_FREQ_HZ, LED_2_DMA, LED_2_INVERT, LED_2_BRIGHTNESS, LED_2_CHANNEL)
-    # Intialize the library (must be called once before other functions).
-    strip1.begin()
-    strip2.begin()
-
-    while True:
-        start_time = time.time()
-
-        led_array.acquire()
-        np_a = np.array(led_array)
-        led_array.release()
-
-        # convert the led_array to a list of colors
-        colors = [Color(*c) for c in np_a.reshape(-1,3)]
-        # and set the LED strips to those colors
-        for i, c in enumerate(colors):
-            strip1.setPixelColor(i, c)
-            strip2.setPixelColor(i, c)
-
-        # write to the LED strips (with GPIO)
-        # we require a sleep after each each write for the strips to finish updating
-        sleep_time = LED_WRITE_DELAY - (time.time() - start_time)
-        if sleep_time > 0: time.sleep(sleep_time)
-        strip1.show()
-        time.sleep(LED_WRITE_DELAY)
-        strip2.show()
-
-
-def visualizer(sample_array, led_array, settings_array):
+def visualizer(sample_array, settings_array):
     '''
     Create an array of colors to be displayed on the LED strips given an array of audio samples
     '''
 
+    strips = Strips()
     voo_index = -1
     new_voo_index = 0
 
@@ -104,17 +69,17 @@ def visualizer(sample_array, led_array, settings_array):
         a_start = (a[-1] + 1) % (a.size - 1)
         a = np.concatenate([a[a_start:-1], a[:a_start]])
 
-        # create a linear color array to be sent to the LED_writer
+        # create a color array
         color_array = vis.visualize(a)
-        color_array = np.ravel(color_array.astype(int))
 
-        # send the color array to the LED_writer
-        led_array.acquire()
-        led_array[:] = color_array
-        led_array.release()
+        # send the color array to the strips
+        strips.write(color_array)
 
 
 def settings_getter(settings_array):
+    '''
+    Make get requests to the server to get the most recent user input
+    '''
     while True:
         # do a get request to the server
         url = 'http://ledvis.local:5000/get_settings'
@@ -136,22 +101,18 @@ def settings_getter(settings_array):
 
         time.sleep(0.1)
 
+
 if __name__ == '__main__':
-    led_array       = Array('i', np.zeros(LED_1_COUNT * 3, dtype=int))
     sample_array    = Array('i', np.zeros(SAMPLE_ARRAY_SIZE + 1, dtype=int))
     settings_array  = Array('i', np.zeros(1, dtype=int))
 
     sampler_process    = Process(target=sampler,         name='Sampler',         args=(sample_array,))
-    led_writer_process = Process(target=led_writer,      name='LED Writer',      args=(led_array,))
-    visualizer_process = Process(target=visualizer,      name='Visualizer',      args=(sample_array, led_array, settings_array))
+    visualizer_process = Process(target=visualizer,      name='Visualizer',      args=(sample_array, settings_array))
     settings_process   = Process(target=settings_getter, name='Settings Getter', args=(settings_array,))
 
-    processes = [sampler_process, led_writer_process, visualizer_process, settings_process]
+    processes = [sampler_process,  visualizer_process, settings_process]
 
     for p in processes: p.start()
-
-    for p in processes:
-        print("Started {} on PID {}".format(p.name, p.pid))
-
+    for p in processes: print("Started {} on PID {}".format(p.name, p.pid))
     for p in processes: p.join()
     
