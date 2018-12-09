@@ -9,7 +9,7 @@ durations = [30, 30, 30]
 
 fileno = 2
 file = files[fileno]
-raw_data = np.log(np.load(file))
+raw_data = np.load(file)
 duration = durations[fileno]
 sample_rate = raw_data.shape[0]/duration
 
@@ -21,18 +21,20 @@ print('[{}]\t\t{} seconds at {} Hz.\t{} samples per vis'.format(file, duration, 
 # resample the data as the visualizer would
 reshaped_data = (raw_data[:-(raw_data.shape[0] % samples_per_vis)]).reshape([-1, samples_per_vis])
 sampled_data = np.max(reshaped_data, axis=1)
+sampled_data = sampled_data/float(np.max(sampled_data))
 
-ema = ExponentialMovingAverageSmoother(0.1)
+ema = ExponentialMovingAverage(0.1)
+
 sl = SpeedLimit()
 
 def smooth(data, smoother):
 	return np.array([smoother.smooth(d) for d in data])
 
 
-plt.plot(np.exp(sampled_data), color=(0,0.5,0,0.5), label='Max')
-plt.plot(np.exp(reshaped_data)[:,-1], color=(0,0.5,0,0.2), label='Last')
+plt.plot(sampled_data, color=(0,0.5,0,0.5), label='Max')
+# plt.plot(reshaped_data[:,-1], color=(0,0.5,0,0.2), label='Last')
 # plt.plot(np.exp(smooth(sampled_data, sl)), color=(0,0,1,1), label='Speed Limit Smoothed')
-plt.plot(np.exp(smooth(sampled_data, ema)), color=(1,0,0,1), label='EMA 0.1 Smoothed')
+plt.plot(smooth(sampled_data, ema), color=(1,0,0,1), label='EMA 0.1 Smoothed')
 plt.legend()
 plt.show()
 

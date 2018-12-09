@@ -18,10 +18,11 @@ class ExponentialMovingAverage(SmootherBase):
 
 
 class ExponentialMovingAverageSpikePass(SmootherBase):
-	def __init__(self, alpha=0.1):
+	def __init__(self, alpha=0.1, pass_coeff=10):
 		self._s = 0
 		self._ss = 1
 		self.alpha = np.clip(alpha, 0.0, 1.0)
+		self.pass_coeff = pass_coeff
 
 	def smooth(self, x):
 		old_s = self._s
@@ -29,7 +30,7 @@ class ExponentialMovingAverageSpikePass(SmootherBase):
 		self._ss = (self.alpha * x**2) + ((1. - self.alpha) * self._ss)
 		var = np.abs(self._ss - self._s**2)
 
-		if x > var*5 + old_s:
+		if x > var*self.pass_coeff + old_s:
 			self._s = x
 		return self._s
 
