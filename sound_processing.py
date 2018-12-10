@@ -7,13 +7,13 @@ import time
 
 class Bounder:
     '''
-	Used to estimate the upper and lower bounds on a stream of incoming
-	data. Can handle scalar and vector data. Also facilitate contracting
-	the bounds over time.
+    Used to estimate the upper and lower bounds on a stream of incoming
+    data. Can handle scalar and vector data. Also facilitate contracting
+    the bounds over time.
     '''
     def __init__(self, init_L=0.0, init_U=1.0, constrain_bounds=False):
-        self.init_U = 1.
-        self.init_L = 0.
+        self.init_U = init_U
+        self.init_L = init_L
         self.U = self.init_U
         self.L = self.init_L
         self.U_contraction_rate = 0.995
@@ -48,77 +48,81 @@ class Bounder:
     def normalize(self, a):
         return (a - self.L)/(self.U - self.L)
 
+    def update_and_normalize(self, a):
+        self.update(a)
+        return self.normalize(a)
+
 ###################################################################################################
 # Smoothing
 ###################################################################################################
 
 class SmootherBase:
-	def __init__(self):
-		pass
+    def __init__(self):
+        pass
 
-	def smooth(self, x):
-		return x
+    def smooth(self, x):
+        return x
 
 class ExponentialMovingAverage(SmootherBase):
-	def __init__(self, alpha):
-		self._s = 0
-		self.alpha = np.clip(alpha, 0.0, 1.0)
+    def __init__(self, alpha):
+        self._s = 0
+        self.alpha = np.clip(alpha, 0.0, 1.0)
 
-	def smooth(self, x):
-		self._s = (self.alpha * x) + ((1. - self.alpha) * self._s)
-		return self._s
+    def smooth(self, x):
+        self._s = (self.alpha * x) + ((1. - self.alpha) * self._s)
+        return self._s
 
 
 class ExponentialMovingAverageSpikePass(SmootherBase):
-	def __init__(self, alpha=0.1, pass_coeff=10):
-		self._s = 0
-		self._ss = 1
-		self.alpha = np.clip(alpha, 0.0, 1.0)
-		self.pass_coeff = pass_coeff
+    def __init__(self, alpha=0.1, pass_coeff=10):
+        self._s = 0
+        self._ss = 1
+        self.alpha = np.clip(alpha, 0.0, 1.0)
+        self.pass_coeff = pass_coeff
 
-	def smooth(self, x):
-		old_s = self._s
-		self._s = (self.alpha * x) + ((1. - self.alpha) * self._s)
-		self._ss = (self.alpha * x**2) + ((1. - self.alpha) * self._ss)
-		var = np.abs(self._ss - self._s**2)
+    def smooth(self, x):
+        old_s = self._s
+        self._s = (self.alpha * x) + ((1. - self.alpha) * self._s)
+        self._ss = (self.alpha * x**2) + ((1. - self.alpha) * self._ss)
+        var = np.abs(self._ss - self._s**2)
 
-		if x > var*self.pass_coeff + old_s:
-			self._s = x
-		return self._s
+        if x > var*self.pass_coeff + old_s:
+            self._s = x
+        return self._s
 
 
 class SpeedLimit(SmootherBase):
-	def __init__(self, up=None, down=-1):
-		self._s = 0
-		self.up = up
-		self.down = down
+    def __init__(self, up=None, down=-1):
+        self._s = 0
+        self.up = up
+        self.down = down
 
-	def smooth(self, x):
-		# calculate the delta
-		d = x - self._s
-		# bound the delta
-		d = max(d, self.down)
-		if self.up is not None: d = min(d, self.up)
-		# and update the smoothed value
-		self._s += d
-		return self._s
+    def smooth(self, x):
+        # calculate the delta
+        d = x - self._s
+        # bound the delta
+        d = max(d, self.down)
+        if self.up is not None: d = min(d, self.up)
+        # and update the smoothed value
+        self._s += d
+        return self._s
 
 
 class EMASpeedLimit(SmootherBase):
-	def __init__(self, alpha=0.4, scale=.5):
-		self._s = 0
-		self._prev_x = 0
-		self.ema = ExponentialMovingAverage(alpha)
-		self.scale = scale
+    def __init__(self, alpha=0.4, scale=.5):
+        self._s = 0
+        self._prev_x = 0
+        self.ema = ExponentialMovingAverage(alpha)
+        self.scale = scale
 
-	def smooth(self, x):
-		dx = x - self._prev_x
-		self._prev_x = x
+    def smooth(self, x):
+        dx = x - self._prev_x
+        self._prev_x = x
 
-		sdx = abs(self.ema.smooth(dx) * self.scale)
+        sdx = abs(self.ema.smooth(dx) * self.scale)
 
-		self._s += np.clip(x - self._s, -sdx, sdx)
-		return self._s
+        self._s += np.clip(x - self._s, -sdx, sdx)
+        return self._s
 
 
 
