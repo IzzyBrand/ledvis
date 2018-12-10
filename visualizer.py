@@ -74,13 +74,12 @@ class FFTGauss(VisualizerBase):
         self.bounder = Bounder()
 
     def visualize(self, sample_array):
-        # decide how many elements from the FFT to use
-        n = int(sample_array.shape[0]/2.0)
+        fft = np.abs(np.fft.rfft(sample_array))
+        n = fft.shape[0]
         n -= n % self.num_bins # make n divisible by the number of bins
+        fft = fft[:n] # take the first n elements of the fft
 
-        f = (np.abs(np.fft.fft(sample_array)[1:n+1])) # take the first n elements of the fft
-        bin_activations = np.sum(f.reshape([self.num_bins,-1]), axis=1) # how much in each frequency bin
-        bin_activations = bin_activations
+        bin_activations = np.sum(fft.reshape([self.num_bins,-1]), axis=1) # how much in each frequency bin
 
         # normalize the bin_activations
         self.bounder.update(bin_activations)
@@ -106,17 +105,16 @@ class FFTGaussBeads(VisualizerBase):
         self.bounder.U_contraction_rate = 0.99
 
     def visualize(self, sample_array):
-        # decide how many elements from the FFT to use
-        n = int(sample_array.shape[0]/2.0)
+        fft = np.abs(np.fft.rfft(sample_array))
+        n = fft.shape[0]
         n -= n % self.num_bins # make n divisible by the number of bins
+        fft = fft[:n] # take the first n elements of the fft
 
-        f = (np.abs(np.fft.fft(sample_array)[1:n+1])) # take the first n elements of the fft
-        bin_activations = np.sum(f.reshape([self.num_bins,-1]), axis=1) # how much in each frequency bin
+        bin_activations = np.sum(fft.reshape([self.num_bins,-1]), axis=1) # how much in each frequency bin
         bin_activations = bin_activations**2
 
         # normalize the bin_activations
-        self.bounder.update(bin_activations)
-        bin_activations = self.bounder.normalize(bin_activations)
+        bin_activations = self.bounder.update_and_normalize(bin_activations)
 
         # multiple the each bin by its gaussian
         color_array = np.max(self.color_gaussians *  bin_activations[None, :, None], axis=1)
@@ -136,9 +134,8 @@ class BlobSlider(VisualizerBase):
         self.smoother = ExponentialMovingAverageSpikePass(0.05)
         self.init_max_amp = 100
 
-    def visualize(self, sample_array):
-        self.bounder.update(sample_array)
-        m = self.bounder.normalize(np.max(sample_array[-10]))
+    def visualize(self, sample_array):  
+        m = self.bounder.update_and_normalize(np.max(sample_array[-10]))
         m = self.smoother.smooth(m)
 
         new_time = time.time()
@@ -183,8 +180,7 @@ class Zoom(VisualizerBase):
         self.stripe_list.append(new_stripe)
 
     def visualize(self, sample_array):
-        self.bounder.update(sample_array)
-        m = self.bounder.normalize(np.max(sample_array[-10]))
+        m = self.bounder.update_and_normalize(np.max(sample_array[-10]))
 
         new_time = time.time()
         dt = new_time - self.prev_time
@@ -232,8 +228,7 @@ class Sparkle(VisualizerBase):
     def visualize(self, sample_array):
         a = sample_array[-8:]
         m = np.max(a) # get the maximum amplitude
-        self.bounder.update(m)
-        m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
+        m = self.bounder.update_and_normalize(m) # normalize the amplitude to [0,1]
         m = max(m**3 * 0.5, - 0.05, 0.01)
         mask = np.random.rand(LED_1_COUNT) < m
         colors = np.random.randint(0,255, [LED_1_COUNT, 3])
@@ -256,10 +251,8 @@ class Retro(VisualizerBase):
         self.max_maker = masker.bottom_up
 
     def visualize(self, sample_array):
-            self.bounder.update(sample_array)
-
             m = np.max(sample_array[-8:]) # get the maximum amplitude
-            m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
+            m = self.bounder.update_and_normalize(m) # normalize the amplitude to [0,1]
             m = np.log(self.smoother.smooth(np.exp(m+2)))-2 # and smooth it
 
             color_mask = self.mask_maker(m) # create a mask of which LEDS to turn on
@@ -321,10 +314,8 @@ class Pancakes(VisualizerBase):
         self.pancakes_colors = (1-lam) * self.color + lam * self.pancake_color
 
     def visualize(self, sample_array):
-            self.bounder.update(sample_array)
-
             m = np.max(sample_array[-8:]) # get the maximum amplitude
-            m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
+            m = self.bounder.update_and_normalize(m) # normalize the amplitude to [0,1]
             m = self.smoother.smooth(m) # and smooth it
 
             new_pos = self.positions - self.velocities
@@ -365,9 +356,8 @@ class Stones(VisualizerBase):
             dt = t - self.prev_t
             self.prev_t = t
             sample_array = np.log(sample_array+1)
-            self.bounder.update(sample_array)
             m = np.max(sample_array[-8:]) # get the maximum amplitude
-            m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
+            m = self.bounder.update_and_normalize(m) # normalize the amplitude to [0,1]
             m = self.smoother.smooth(m) # and smooth it
             m = (10**m - 1)/20.
 
