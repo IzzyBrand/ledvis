@@ -2,7 +2,7 @@ import numpy as np
 import masker
 import time
 from config import *
-from smoother import *
+from sound_processing import *
 
 
 class VisualizerBase:
@@ -12,34 +12,6 @@ class VisualizerBase:
     '''
     def __init__(self):
         self.name = self.__class__.__name__
-        self.init_max_amp = 1.
-        self.init_min_amp = 0.
-        self.max_amp = self.init_max_amp
-        self.min_amp = self.init_min_amp
-        self.max_amp_contraction_rate = 0.9995
-        self.min_amp_contraction_rate = 0.9995
-
-    def update_bounds(self, sample_array, constrain_bounds=False):
-        '''
-        Stores the minimum and maximum values observed in the sample data so far.
-
-        Args:
-            sample_array (np.array): the sample data
-            constrain_bounds (bool, optional): Description
-        '''
-        if np.isinf(np.sum(sample_array)): return
-
-        self.max_amp = self.min_amp + (self.max_amp - self.min_amp) * self.min_amp_contraction_rate
-        self.max_amp = max(self.max_amp, np.max(sample_array))
-        self.min_amp = self.max_amp - (self.max_amp - self.min_amp) * self.min_amp_contraction_rate
-        self.min_amp = min(self.min_amp, np.min(sample_array))
-
-        if constrain_bounds:
-            self.min_amp = min(self.min_amp, self.init_min_amp)
-            self.max_amp = max(self.max_amp, self.init_max_amp)
-
-    def normalize(self, m):
-        return (m - self.min_amp)/(self.max_amp-self.min_amp)
 
     def visualize(self, sample_array):
         return np.zeros([LED_1_COUNT, 3], dtype=int)
@@ -48,11 +20,12 @@ class VisualizerBase:
 class ExampleVisualizer(VisualizerBase):
     def __init__(self):
         VisualizerBase.__init__(self)
+        self.bounder = Bounder()
 
     def visualize(self, sample_array):
-        self.update_bounds(sample_array) # update the max and min observed sample
+        self.bounder.update(sample_array) # update the max and min observed sample
         m = sample_array[-1] # pull out the most recent sample
-        m = self.normalize(most_recent_sample) # normalize it to be from 0 to 1
+        m = self.bounder.normalize(most_recent_sample) # normalize it to be from 0 to 1
 
         # make an array with LED_1_COUNT elements, where one entry is 255 and the rest are zeros.
         color_channel = 255 * (np.arrange(LED_1_COUNT) == int(m * LED_1_COUNT))
@@ -73,12 +46,13 @@ class VooMeter(VisualizerBase):
         self.color = color
         self.mask_maker = mask_maker
         self.smoother = ExponentialMovingAverageSpikePass(0.1)
+        self.bounder = Bounder()
 
     def visualize(self, sample_array):
-            self.update_bounds(sample_array)
+            self.bounder.update(sample_array)
 
             m = np.max(sample_array[-8:]) # get the maximum amplitude
-            m = self.normalize(m) # normalize the amplitude to [0,1]
+            m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
             m = self.smoother.smooth(m) # and smooth it
 
             color_mask = self.mask_maker(m) # create a mask of which LEDS to turn on
@@ -97,6 +71,7 @@ class FFTGauss(VisualizerBase):
         self.centers = (np.arange(self.num_bins) + 0.5) * self.bin_size
         self.gaussians = np.vstack([gaussian(np.arange(LED_1_COUNT), mu, self.bin_size) for mu in self.centers])
         self.color_gaussians = np.multiply(self.colors.T[:,:,None], self.gaussians)
+        self.bounder = Bounder()
 
     def visualize(self, sample_array):
         # decide how many elements from the FFT to use
@@ -108,8 +83,8 @@ class FFTGauss(VisualizerBase):
         bin_activations = bin_activations
 
         # normalize the bin_activations
-        self.update_bounds(bin_activations)
-        bin_activations = self.normalize(bin_activations)
+        self.bounder.update(bin_activations)
+        bin_activations = self.bounder.normalize(bin_activations)
 
         # multiple the each bin by its gaussian
         color_array = np.max(self.color_gaussians *  bin_activations[None, :, None], axis=1)
@@ -127,7 +102,8 @@ class FFTGaussBeads(VisualizerBase):
         self.centers = (np.arange(self.num_bins) + 0.5) * self.bin_size
         self.gaussians = np.vstack([gaussian(np.arange(LED_1_COUNT), mu, self.bin_size/4) for mu in self.centers])
         self.color_gaussians = np.multiply(self.colors.T[:,:,None], self.gaussians)
-        self.max_amp_contraction_rate = 0.99
+        self.bounder = Bounder()
+        self.bounder.U_contraction_rate = 0.99
 
     def visualize(self, sample_array):
         # decide how many elements from the FFT to use
@@ -139,8 +115,8 @@ class FFTGaussBeads(VisualizerBase):
         bin_activations = bin_activations**2
 
         # normalize the bin_activations
-        self.update_bounds(bin_activations)
-        bin_activations = self.normalize(bin_activations)
+        self.bounder.update(bin_activations)
+        bin_activations = self.bounder.normalize(bin_activations)
 
         # multiple the each bin by its gaussian
         color_array = np.max(self.color_gaussians *  bin_activations[None, :, None], axis=1)
@@ -156,12 +132,13 @@ class BlobSlider(VisualizerBase):
         self.blob_prob = 0.02
         self.prev_time = time.time()
         self.blob_buffer = 10
+        self.bounder = Bounder(constrain_bounds=True)
         self.smoother = ExponentialMovingAverageSpikePass(0.05)
         self.init_max_amp = 100
 
     def visualize(self, sample_array):
-        self.update_bounds(sample_array, constrain_bounds=True)
-        m = self.normalize(np.max(sample_array[-10]))
+        self.bounder.update(sample_array)
+        m = self.bounder.normalize(np.max(sample_array[-10]))
         m = self.smoother.smooth(m)
 
         new_time = time.time()
@@ -193,6 +170,7 @@ class BlobSlider(VisualizerBase):
 class Zoom(VisualizerBase):
     def __init__(self):
         VisualizerBase.__init__(self)
+        self.bounder = Bounder()
         self.stripe_list = []
         self.prev_time = time.time()
         self.zoom_rate = 1.
@@ -205,8 +183,8 @@ class Zoom(VisualizerBase):
         self.stripe_list.append(new_stripe)
 
     def visualize(self, sample_array):
-        self.update_bounds(sample_array)
-        m = self.normalize(np.max(sample_array[-10]))
+        self.bounder.update(sample_array)
+        m = self.bounder.normalize(np.max(sample_array[-10]))
 
         new_time = time.time()
         dt = new_time - self.prev_time
@@ -243,18 +221,19 @@ class Zoom(VisualizerBase):
             self.curr_color = (self.curr_color + 1) % 3
             self.stripe_list.insert(0, new_stripe)
 
-        return np.ravel(colors)
+        return colors
 
 
 class Sparkle(VisualizerBase):
     def __init__(self):
         VisualizerBase.__init__(self)
+        self.bounder = Bounder()
 
     def visualize(self, sample_array):
         a = sample_array[-8:]
-        self.update_bounds(a, constrain_bounds=False)
         m = np.max(a) # get the maximum amplitude
-        m = self.normalize(m) # normalize the amplitude to [0,1]
+        self.bounder.update(m)
+        m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
         m = max(m**3 * 0.5, - 0.05, 0.01)
         mask = np.random.rand(LED_1_COUNT) < m
         colors = np.random.randint(0,255, [LED_1_COUNT, 3])
@@ -267,7 +246,9 @@ class Retro(VisualizerBase):
         self.color = np.array([75, 75, 10])
         self.floater_color = np.array([40, 160, 230])
         self.mask_maker = masker.bottom_up
+        self.bounder = Bounder()
         self.smoother = ExponentialMovingAverage(0.2)
+
         self.descent_rate = 0.008
         self.fade_size = 20
         self.fade = (np.arange(self.fade_size, dtype=float)/self.fade_size)[:,None]
@@ -275,10 +256,10 @@ class Retro(VisualizerBase):
         self.max_maker = masker.bottom_up
 
     def visualize(self, sample_array):
-            self.update_bounds(sample_array)
+            self.bounder.update(sample_array)
 
             m = np.max(sample_array[-8:]) # get the maximum amplitude
-            m = self.normalize(m) # normalize the amplitude to [0,1]
+            m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
             m = np.log(self.smoother.smooth(np.exp(m+2)))-2 # and smooth it
 
             color_mask = self.mask_maker(m) # create a mask of which LEDS to turn on
@@ -329,6 +310,7 @@ class Pancakes(VisualizerBase):
 
         self.mask_maker = masker.bottom_up
         self.smoother = ExponentialMovingAverageSpikePass(0.1, pass_coeff=20)
+        self.bounder = Bounder()
 
         self.num_cakes = 10
         self.positions = np.arange(self.num_cakes)
@@ -339,10 +321,10 @@ class Pancakes(VisualizerBase):
         self.pancakes_colors = (1-lam) * self.color + lam * self.pancake_color
 
     def visualize(self, sample_array):
-            self.update_bounds(sample_array)
+            self.bounder.update(sample_array)
 
             m = np.max(sample_array[-8:]) # get the maximum amplitude
-            m = self.normalize(m) # normalize the amplitude to [0,1]
+            m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
             m = self.smoother.smooth(m) # and smooth it
 
             new_pos = self.positions - self.velocities
@@ -367,6 +349,7 @@ class Stones(VisualizerBase):
 
         self.mask_maker = masker.bottom_up
         self.smoother = ExponentialMovingAverage(0.4)
+        self.bounder = Bounder()
 
         self.num_stones = 5
         self.positions = np.ones(self.num_stones)
@@ -381,10 +364,10 @@ class Stones(VisualizerBase):
             t = time.time()
             dt = t - self.prev_t
             self.prev_t = t
-            sample_array = np.log(sample_array)
-            self.update_bounds(sample_array)
+            sample_array = np.log(sample_array+1)
+            self.bounder.update(sample_array)
             m = np.max(sample_array[-8:]) # get the maximum amplitude
-            m = self.normalize(m) # normalize the amplitude to [0,1]
+            m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
             m = self.smoother.smooth(m) # and smooth it
             m = (10**m - 1)/20.
 
