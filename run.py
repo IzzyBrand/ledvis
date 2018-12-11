@@ -4,7 +4,6 @@ import numpy as np
 import time
 import requests
 from config import *
-from smoother import *
 from visualizer import vis_list
 from strips import Strips
 

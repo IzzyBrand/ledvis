@@ -61,7 +61,7 @@ class VooMeter(VisualizerBase):
             return color_mask * self.color
 
 
-class FFTGauss(VisualizerBase):
+class FFTRainbow(VisualizerBase):
     def __init__(self):
         VisualizerBase.__init__(self)
         self.hex_colors = ["7B00FF", "5255EE", "29AADD", "00FFCC", "4EFF88", "9CFF44", "EAFF00", "F1AA00", "F85500", "FF0000"]
@@ -91,35 +91,39 @@ class FFTGauss(VisualizerBase):
         return color_array.T
 
 
-class FFTGaussBeads(VisualizerBase):
+class FFT(VisualizerBase):
     def __init__(self):
         VisualizerBase.__init__(self)
-        self.hex_colors = ["7B00FF", "5255EE", "29AADD", "00FFCC", "4EFF88", "9CFF44", "EAFF00", "F1AA00", "F85500", "FF0000"]
-        self.colors = np.array([hex_to_rgb(h) for h in self.hex_colors])[:,[1,0,2]]
-        self.num_bins = self.colors.shape[0]
-        self.bin_size = float(LED_1_COUNT)/self.num_bins
-        self.centers = (np.arange(self.num_bins) + 0.5) * self.bin_size
-        self.gaussians = np.vstack([gaussian(np.arange(LED_1_COUNT), mu, self.bin_size/4) for mu in self.centers])
-        self.color_gaussians = np.multiply(self.colors.T[:,:,None], self.gaussians)
+        self.g = gaussian(np.linspace(-5, 5, 20), 0, 1)
         self.bounder = Bounder()
-        self.bounder.U_contraction_rate = 0.99
+        self.bounder.U_contraction_rate = 0.999
+        self.hanning = np.hanning(SAMPLE_ARRAY_SIZE)
+        
+        self.freqs = np.fft.rfftfreq(SAMPLE_ARRAY_SIZE, 1./SAMPLE_FREQUENCY)
+        self.mel = hertz_to_mel(self.freqs)
+        self.half_led_count = int(LED_1_COUNT * 0.55)
 
     def visualize(self, sample_array):
-        fft = np.abs(np.fft.rfft(sample_array))[1:]
-        n = fft.shape[0]
-        n -= n % self.num_bins # make n divisible by the number of bins
-        fft = fft[:n] # take the first n elements of the fft
+        color_array = np.zeros([self.half_led_count, 3])
+        # color_array[:,0] = np.linspace(0, 40, LED_1_COUNT) # G
+        color_array[:,1] = np.linspace(0, 160, self.half_led_count) # R
+        color_array[:,2] = np.linspace(160, 0, self.half_led_count) # B
 
-        bin_activations = np.sum(fft.reshape([self.num_bins,-1]), axis=1) # how much in each frequency bin
-        bin_activations = bin_activations**2
 
-        # normalize the bin_activations
-        bin_activations = self.bounder.update_and_normalize(bin_activations)
+        fft = np.abs(np.fft.rfft(sample_array * np.hanning(SAMPLE_ARRAY_SIZE))) * self.mel
+        smoothed_fft = np.convolve(fft[1:100], self.g)
+        normalized_fft = self.bounder.update_and_normalize(smoothed_fft)
+        interped_fft = np.interp(np.arange(self.half_led_count),
+                                 np.linspace(0,self.half_led_count, normalized_fft.shape[0]),
+                                 normalized_fft)
 
-        # multiple the each bin by its gaussian
-        color_array = np.max(self.color_gaussians *  bin_activations[None, :, None], axis=1)
+        color_array *= interped_fft[:,None]
 
-        return color_array.T
+        colors = np.zeros([LED_1_COUNT,3])
+        colors[-self.half_led_count:,:] += color_array
+        colors[:self.half_led_count,:] += np.flipud(color_array)
+
+        return colors
 
 
 class BlobSlider(VisualizerBase):
@@ -382,55 +386,19 @@ class Stones(VisualizerBase):
             return color_array
 
 
-class FFT(VisualizerBase):
-    def __init__(self):
-        VisualizerBase.__init__(self)
-        self.g = gaussian(np.linspace(-2, 2, 20), 0, 1)
-        self.bounder = Bounder()
-        self.hanning = np.hanning(SAMPLE_ARRAY_SIZE)
-        
-        self.n = 2**int(np.ceil(np.log2(SAMPLE_ARRAY_SIZE)))
-        self.mel = hertz_to_mel(np.linspace(0,1,int(self.n/2))*SAMPLE_FREQUENCY/2.0)
-        self.half_led_count = int(LED_1_COUNT/2)
-
-    def visualize(self, sample_array):
-        color_array = np.zeros([self.half_led_count, 3])
-        # color_array[:,0] = np.linspace(0, 40, LED_1_COUNT) # G
-        color_array[:,1] = np.linspace(0, 160, self.half_led_count) # R
-        color_array[:,2] = np.linspace(160, 0, self.half_led_count) # B
-
-        padded_sample_array = np.pad(sample_array * self.hanning,
-                                     (0, self.n - SAMPLE_ARRAY_SIZE),
-                                     mode='constant')
-
-        fft = np.abs(np.fft.rfft(padded_sample_array))[1:] * self.mel
-        smoothed_fft = np.convolve(fft, self.g)
-        normalized_fft = self.bounder.update_and_normalize(smoothed_fft)
-        interped_fft = np.interp(np.arange(self.half_led_count),
-                                 np.linspace(0,self.half_led_count, normalized_fft.shape[0]),
-                                 normalized_fft)
-
-        color_array *= interped_fft[:,None]
-
-        colors = np.zeros([LED_1_COUNT,3])
-        colors[-self.half_led_count:,:] = color_array
-        colors[:self.half_led_count,:] = np.flipud(color_array)
-
-        return colors
 
 # this is the list of visualizers to be used by run.py and the web page
 vis_list = [StripsOff,
             VooMeter,
-            FFTGauss,
-            FFTGaussBeads,
+            FFTRainbow,
+            FFT,
             BlobSlider,
             Zoom,
             Sparkle,
             Retro,
             Pancakes,
             SamMode,
-            Stones,
-            FFT]
+            Stones]
 
 ###################################################################################################
 # Experimental stuff
