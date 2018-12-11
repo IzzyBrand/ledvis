@@ -52,6 +52,19 @@ class Bounder:
         self.update(a)
         return self.normalize(a)
 
+def hertz_to_mel(freq):
+    """Returns mel-frequency from linear frequency input.
+    Parameter
+    ---------
+    freq : scalar or ndarray
+        Frequency value or array in Hz.
+    Returns
+    -------
+    mel : scalar or ndarray
+        Mel-frequency value or ndarray in Mel
+    """
+    return 2595.0 * np.log10(1 + (freq / 700.0))
+
 ###################################################################################################
 # Smoothing
 ###################################################################################################
@@ -123,6 +136,3 @@ class EMASpeedLimit(SmootherBase):
 
         self._s += np.clip(x - self._s, -sdx, sdx)
         return self._s
-
-
-
