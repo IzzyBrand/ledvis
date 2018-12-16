@@ -98,7 +98,7 @@ class FFT(VisualizerBase):
         self.bounder = Bounder()
         self.bounder.U_contraction_rate = 0.999
         self.hanning = np.hanning(SAMPLE_ARRAY_SIZE)
-        
+
         self.freqs = np.fft.rfftfreq(SAMPLE_ARRAY_SIZE, 1./SAMPLE_FREQUENCY)
         self.mel = hertz_to_mel(self.freqs)
         self.half_led_count = int(LED_1_COUNT * 0.55)
@@ -138,7 +138,7 @@ class BlobSlider(VisualizerBase):
         self.smoother = ExponentialMovingAverageSpikePass(0.05)
         self.init_max_amp = 100
 
-    def visualize(self, sample_array):  
+    def visualize(self, sample_array):
         m = self.bounder.update_and_normalize(np.max(sample_array[-10]))
         m = self.smoother.smooth(m)
 
@@ -270,7 +270,7 @@ class Retro(VisualizerBase):
             part_1 = (1 - self.fade) * color_array[i:j, :]
             part_2 = self.fade * self.floater_color
             color_array[i:j, :] =  part_1 + part_2
-            
+
             return color_array
 
 
@@ -386,6 +386,34 @@ class Stones(VisualizerBase):
             return color_array
 
 
+class Blocks(VisualizerBase):
+    def __init__(self):
+        VisualizerBase.__init__(self)
+        self.bounder = Bounder()
+        self.color_array = np.zeros([LED_1_COUNT, 3])
+        self.decay_rate = 0.99
+        self.max_window_size = 80
+
+    def visualize(self, sample_array):
+
+
+        m = self.bounder.update_and_normalize(np.max(sample_array[-20:]))
+
+        # window_size = max(0,np.random.randn() * 8 + 8)
+        window_size = int(m**2.5 * self.max_window_size)
+        position = np.random.randint(LED_1_COUNT)
+
+        start = max(0, int(position - window_size/2))
+        end = min(LED_1_COUNT-1, int(position + window_size/2))
+        color = np.random.rand(3) * 255
+
+        self.color_array *= self.decay_rate
+        self.color_array[start:end, :] = color
+
+        return np.clip(self.color_array, 0, 255).astype(int)
+
+
+
 
 # this is the list of visualizers to be used by run.py and the web page
 vis_list = [StripsOff,
@@ -398,7 +426,8 @@ vis_list = [StripsOff,
             Retro,
             Pancakes,
             SamMode,
-            Stones]
+            Stones,
+            Blocks]
 
 ###################################################################################################
 # Experimental stuff
