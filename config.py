@@ -1,12 +1,15 @@
 import numpy as np
-# PYAUDIO CONFIGURATION
-# CHUNK_SIZE 		= 882 	 # How many audio samples to read in per step
-# FORMAT 			= 8
-# NUM_CHANNELS 	= 2      # Number of audio channels
-# SAMPLING_FREQ	= 44100  # Sampling frequency of incoming audio
-# DEVICE_INDEX 	= 2      # Which audio device to read from (listed in pyaudio_test.py)
+import pyaudio
 
-SAMPLE_ARRAY_SIZE = 500
+# PYAUDIO CONFIGURATION
+CHUNK_SIZE 		= 2**8 	 # How many audio samples to read in per step
+FORMAT 			= pyaudio.paInt16
+NUM_CHANNELS 	= 1      # Number of audio channels
+SAMPLING_FREQ	= 44100  # Sampling frequency of incoming audio
+DEVICE_INDEX 	= 0      # Which audio device to read from (listed in pyaudio_test.py)
+
+NUM_CHUNKS = 3
+SAMPLE_ARRAY_SIZE = CHUNK_SIZE * NUM_CHUNKS
 
 # LED STRIPS CONFIGURATION
 LED_1_COUNT      = 150     # Number of LED pixels.

@@ -1,5 +1,5 @@
 from multiprocessing import Process, Array
-import Adafruit_ADS1x15
+import pyaudio
 import numpy as np
 import time
 import requests
@@ -13,23 +13,26 @@ def sampler(sample_array):
     Sample the ADC as in continous mode and write into the shared array as a circular buffer.
     The index that has been most recently written is stored in the last slot in the array
     '''
-    adc = Adafruit_ADS1x15.ADS1015() # instantiate the ADC object
-    adc.start_adc(ADC_CHANNEL, gain=ADC_GAIN) # start continous sampling
 
+    audio = pyaudio.PyAudio() # create pyaudio instantiation
+
+    # create pyaudio stream
+    stream = audio.open(format=FORMAT, rate=SAMPLING_FREQ, channels=NUM_CHANNELS, \
+                        input_device_index=DEVICE_INDEX, input=True, \
+                        frames_per_buffer=CHUNK_SIZE)
     sample_index = 0
 
     while True:
-        # TODO(izzy): get the upper and lower bounds on the ADC so we can
-        # handle negative numbers properly and not crop the sample range
-        val = abs(adc.get_last_result()) # sample the ADC
+        data = stream.read(CHUNK_SIZE)
+        int_data = np.fromstring(data, dtype="int16")
 
         # attempts a non-blocking write to the sample array
         if sample_array.acquire(False):
-            sample_array[sample_index] = val # write the newest sample to the array
+            sample_array[sample_index:sample_index + CHUNK_SIZE] = int_data # write the newest sample to the array
             sample_array[-1] = sample_index # store the most recent index last in the array
             sample_array.release()
 
-            sample_index += 1
+            sample_index += CHUNK_SIZE
             sample_index = sample_index % SAMPLE_ARRAY_SIZE
 
     # here I was saving some sample data for testing offline
