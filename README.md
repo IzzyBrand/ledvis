@@ -16,12 +16,12 @@ Run this to install the rpi_ws281x (LED) driver library
 ```
 cd ~
 git clone https://github.com/jgarff/rpi_ws281x.git
-sudo apt install scons
+sudo apt install scons swig
 cd rpi_ws281x
 scons
 cd python
-python setup.py build
-python setup.py install
+sudo -H python setup.py build
+sudo -H python setup.py install
 ```
 
 And run this to install the other dependencies
