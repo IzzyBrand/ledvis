@@ -8,7 +8,7 @@ NUM_CHANNELS 	= 1      # Number of audio channels
 SAMPLING_FREQ	= 44100  # Sampling frequency of incoming audio
 DEVICE_INDEX 	= 0      # Which audio device to read from (listed in pyaudio_test.py)
 
-NUM_CHUNKS = 3
+NUM_CHUNKS = 4
 SAMPLE_ARRAY_SIZE = CHUNK_SIZE * NUM_CHUNKS
 
 # LED STRIPS CONFIGURATION

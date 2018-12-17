@@ -45,13 +45,13 @@ class VooMeter(VisualizerBase):
         VisualizerBase.__init__(self)
         self.color = color
         self.mask_maker = mask_maker
-        self.smoother = ExponentialMovingAverageSpikePass(0.1)
+        self.smoother = ExponentialMovingAverage(0.5)
         self.bounder = Bounder()
 
     def visualize(self, sample_array):
             self.bounder.update(sample_array)
 
-            m = np.max(sample_array[-8:]) # get the maximum amplitude
+            m = np.max(sample_array[-100:]) # get the maximum amplitude
             m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
             m = self.smoother.smooth(m) # and smooth it
 
@@ -94,14 +94,23 @@ class FFTRainbow(VisualizerBase):
 class FFT(VisualizerBase):
     def __init__(self):
         VisualizerBase.__init__(self)
-        self.g = gaussian(np.linspace(-5, 5, 20), 0, 1)
+        self.g = gaussian(np.linspace(-5, 5, 10), 0, 0.5)
         self.bounder = Bounder()
         self.bounder.U_contraction_rate = 0.999
         self.hanning = np.hanning(SAMPLE_ARRAY_SIZE)
 
-        self.freqs = np.fft.rfftfreq(SAMPLE_ARRAY_SIZE, 1./SAMPLE_FREQUENCY)
+        self.freqs = np.fft.rfftfreq(SAMPLE_ARRAY_SIZE, 1./SAMPLING_FREQ)
+        max_freq = 1500
+        min_freq = 30
+        # print(np.where(self.freqs>min_freq).shape)
+        self.start_index = np.where(self.freqs>min_freq)[0][0]
+        self.start_index = 0
+        self.end_index = np.where(self.freqs<max_freq)[0][-1]
+        print(self.start_index, self.end_index)
+        self.freqs = self.freqs[self.start_index:self.end_index]
         self.mel = hertz_to_mel(self.freqs)
-        self.half_led_count = int(LED_1_COUNT * 0.55)
+        self.half_led_count = int(LED_1_COUNT * 0.57)
+
 
     def visualize(self, sample_array):
         color_array = np.zeros([self.half_led_count, 3])
@@ -110,8 +119,8 @@ class FFT(VisualizerBase):
         color_array[:,2] = np.linspace(160, 0, self.half_led_count) # B
 
 
-        fft = np.abs(np.fft.rfft(sample_array * np.hanning(SAMPLE_ARRAY_SIZE))) * self.mel
-        smoothed_fft = np.convolve(fft[1:100], self.g)
+        fft = np.abs(np.fft.rfft(sample_array * np.hanning(SAMPLE_ARRAY_SIZE)))[self.start_index:self.end_index]
+        smoothed_fft = np.convolve(fft , self.g)
         normalized_fft = self.bounder.update_and_normalize(smoothed_fft)
         interped_fft = np.interp(np.arange(self.half_led_count),
                                  np.linspace(0,self.half_led_count, normalized_fft.shape[0]),
@@ -391,21 +400,21 @@ class Blocks(VisualizerBase):
         VisualizerBase.__init__(self)
         self.bounder = Bounder()
         self.color_array = np.zeros([LED_1_COUNT, 3])
-        self.decay_rate = 0.99
+        self.decay_rate = 0.95
         self.max_window_size = 80
 
     def visualize(self, sample_array):
 
 
-        m = self.bounder.update_and_normalize(np.max(sample_array[-20:]))
+        m = self.bounder.update_and_normalize(np.max(sample_array[-50:]))
 
         # window_size = max(0,np.random.randn() * 8 + 8)
-        window_size = int(m**2.5 * self.max_window_size)
+        window_size = int(m**3 * self.max_window_size)
         position = np.random.randint(LED_1_COUNT)
 
         start = max(0, int(position - window_size/2))
         end = min(LED_1_COUNT-1, int(position + window_size/2))
-        color = np.random.rand(3) * 255
+        color = np.random.rand(3) * 255 * m
 
         self.color_array *= self.decay_rate
         self.color_array[start:end, :] = color
@@ -440,8 +449,6 @@ def hex_to_rgb(h):
     h = h.lstrip('#')
     return tuple(int(h[i:i+2], 16) for i in (0, 2 ,4))
 
-SAMPLE_FREQUENCY = 3000
-
 def get_max_freq(a):
     '''
     Returns a value from [0,1] indicating the frequency ouf of the maximum
@@ -450,7 +457,7 @@ def get_max_freq(a):
     A = abs(np.fft.fft(a))
     # the fourier transform is symmetric, so we can only use the first half
     return np.argmax(A[1:int(SAMPLE_ARRAY_SIZE/2)])/(SAMPLE_ARRAY_SIZE/2.0)
-    # freqs = np.arange(SAMPLE_ARRAY_SIZE) * SAMPLE_FREQUENCY/SAMPLE_ARRAY_SIZE
+    # freqs = np.arange(SAMPLE_ARRAY_SIZE) * SAMPLING_FREQ/SAMPLE_ARRAY_SIZE
     # max_freq_index = np.argmax(A[1:int(SAMPLE_ARRAY_SIZE/2)])
     # return freqs[max_freq_index]
 
