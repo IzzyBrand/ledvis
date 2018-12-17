@@ -91,7 +91,7 @@ class SplitExponentialMovingAverage(SmootherBase):
         self.alpha_up = alpha_up
         self._s = 0
 
-    def update(self, x):
+    def smooth(self, x):
         if isinstance(self._s, (list, np.ndarray, tuple)):
             alpha = x - self._s
             alpha[alpha > 0.0] = self.alpha_up

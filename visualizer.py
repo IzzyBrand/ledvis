@@ -74,16 +74,17 @@ class StripsOff(VisualizerBase):
 class VooMeter(VisualizerBase):
     def __init__(self, color=np.array([120, 200, 100]), mask_maker=masker.middle_out):
         VisualizerBase.__init__(self)
-        self.color = color
+        self.color = np.random.randint(low=0, high=255, size=3)
         self.mask_maker = mask_maker
-        self.smoother = ExponentialMovingAverage(0.5)
+        self.smoother = SplitExponentialMovingAverage(0.2, 0.7)
         self.bounder = Bounder()
+        self.bounder.L_contraction_rate = 0.999
+        self.bounder.L_contraction_rate = 0.9
 
     def visualize(self, sample_array):
-            self.bounder.update(sample_array)
 
-            m = np.max(sample_array[-100:]) # get the maximum amplitude
-            m = self.bounder.normalize(m) # normalize the amplitude to [0,1]
+            m = np.max(sample_array[-300:]) # get the maximum amplitude
+            m = self.bounder.update_and_normalize(m) # normalize the amplitude to [0,1]
             m = self.smoother.smooth(m) # and smooth it
 
             color_mask = self.mask_maker(m) # create a mask of which LEDS to turn on
@@ -334,8 +335,9 @@ class Pancakes(VisualizerBase):
         self.color = np.array([50, 80, 0])
 
         self.mask_maker = masker.bottom_up
-        self.smoother = ExponentialMovingAverageSpikePass(0.1, pass_coeff=20)
+        self.smoother = SplitExponentialMovingAverage(0.1, 0.6)
         self.bounder = Bounder()
+        self.bounder.L_contraction_rate = 0.9
 
         self.num_cakes = 10
         self.positions = np.arange(self.num_cakes)
@@ -346,7 +348,7 @@ class Pancakes(VisualizerBase):
         self.pancakes_colors = (1-lam) * self.color + lam * self.pancake_color
 
     def visualize(self, sample_array):
-            m = np.max(sample_array[-8:]) # get the maximum amplitude
+            m = np.max(sample_array[-500:]) # get the maximum amplitude
             m = self.bounder.update_and_normalize(m) # normalize the amplitude to [0,1]
             m = self.smoother.smooth(m) # and smooth it
 
@@ -371,8 +373,9 @@ class Stones(VisualizerBase):
         self.color = np.array([20, 20, 30])
 
         self.mask_maker = masker.bottom_up
-        self.smoother = ExponentialMovingAverage(0.4)
+        self.smoother = SplitExponentialMovingAverage(0.1, 0.6)
         self.bounder = Bounder()
+        self.bounder.L_contraction_rate = 0.9
 
         self.num_stones = 5
         self.positions = np.ones(self.num_stones)
@@ -387,11 +390,9 @@ class Stones(VisualizerBase):
             t = time.time()
             dt = t - self.prev_t
             self.prev_t = t
-            sample_array = np.log(sample_array+1)
-            m = np.max(sample_array[-8:]) # get the maximum amplitude
+            m = np.max(sample_array[-500:]) # get the maximum amplitude
             m = self.bounder.update_and_normalize(m) # normalize the amplitude to [0,1]
-            m = self.smoother.smooth(m) # and smooth it
-            m = (10**m - 1)/20.
+            m = self.smoother.smooth(m) * 0.35 # and smooth it
 
             dm = m - self.prev_m
             self.prev_m = m
@@ -455,7 +456,8 @@ vis_list = [StripsOff,
             Retro,
             Pancakes,
             SamMode,
-            Stones]
+            Stones,
+            VooMeter]
 
 ###################################################################################################
 # Experimental stuff
