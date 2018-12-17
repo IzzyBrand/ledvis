@@ -40,6 +40,7 @@ t = time.time()
 count = 0
 for ii in range(0,int((SAMPLING_FREQ/CHUNK_SIZE)*record_secs)):
     data = stream.read(CHUNK_SIZE)
+    print stream.get_read_available()
     int_data = np.fromstring(data, dtype="int16")
     # frames.append(data)
     count += 1

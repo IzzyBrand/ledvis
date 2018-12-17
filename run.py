@@ -23,8 +23,16 @@ def sampler(sample_array):
     sample_index = 0
 
     while True:
-        data = stream.read(CHUNK_SIZE)
+        try:
+            data = stream.read(CHUNK_SIZE)
+        except IOError:
+            print 'Stream overflow!'
+            stream.close()
+            stream = audio.open(format=FORMAT, rate=SAMPLING_FREQ, channels=NUM_CHANNELS, \
+                        input_device_index=DEVICE_INDEX, input=True, \
+                        frames_per_buffer=CHUNK_SIZE)
         int_data = np.fromstring(data, dtype="int16")
+        # print stream.get_read_available()
 
         # attempts a non-blocking write to the sample array
         if sample_array.acquire(False):
