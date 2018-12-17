@@ -17,6 +17,32 @@ class VisualizerBase:
         return np.zeros([LED_1_COUNT, 3], dtype=int)
 
 
+class FFTVisualizerBase(VisualizerBase):
+    def __init__(self):
+        VisualizerBase.__init__(self)
+        
+    def fft_setup(self, min_freq, max_freq, num_samples=SAMPLE_ARRAY_SIZE):
+        self.fft_num_samples = num_samples
+        self.hanning = np.hanning(self.fft_num_samples) # hanning sample window 
+        
+        # get the indices of the lower and upper frequencies
+        self.min_freq = min_freq
+        self.max_freq = max_freq
+        self.freqs = np.fft.rfftfreq(self.fft_num_samples, 1./SAMPLING_FREQ)
+        self.fft_start_index = np.where(self.freqs>=min_freq)[0][0]
+        self.fft_end_index = np.where(self.freqs<=max_freq)[0][-1]
+        self.freqs = self.freqs[self.fft_start_index:self.fft_end_index] # array of frequencies
+
+        self.mel = hertz_to_mel(self.freqs) # a mel filter to normalize the frequency intensity
+        
+
+    def fft(self, sample_array, hanning=False):
+        a = sample_array[-self.fft_num_samples:]
+        if hanning: a *= self.hanning
+        f = np.abs(np.fft.rfft(a))
+        return f[self.fft_start_index:self.fft_end_index]
+
+
 class ExampleVisualizer(VisualizerBase):
     def __init__(self):
         VisualizerBase.__init__(self)
@@ -61,9 +87,9 @@ class VooMeter(VisualizerBase):
             return color_mask * self.color
 
 
-class FFTRainbow(VisualizerBase):
+class FFTRainbow(FFTVisualizerBase):
     def __init__(self):
-        VisualizerBase.__init__(self)
+        FFTVisualizerBase.__init__(self)
         self.hex_colors = ["7B00FF", "5255EE", "29AADD", "00FFCC", "4EFF88", "9CFF44", "EAFF00", "F1AA00", "F85500", "FF0000"]
         self.colors = np.array([hex_to_rgb(h) for h in self.hex_colors])[:,[1,0,2]]
         self.num_bins = self.colors.shape[0]
@@ -72,9 +98,10 @@ class FFTRainbow(VisualizerBase):
         self.gaussians = np.vstack([gaussian(np.arange(LED_1_COUNT), mu, self.bin_size) for mu in self.centers])
         self.color_gaussians = np.multiply(self.colors.T[:,:,None], self.gaussians)
         self.bounder = Bounder()
+        self.fft_setup(0, 1500)
 
     def visualize(self, sample_array):
-        fft = np.abs(np.fft.rfft(sample_array))[1:]
+        fft = self.fft(sample_array)
         n = fft.shape[0]
         n -= n % self.num_bins # make n divisible by the number of bins
         fft = fft[:n] # take the first n elements of the fft
@@ -91,26 +118,14 @@ class FFTRainbow(VisualizerBase):
         return color_array.T
 
 
-class FFT(VisualizerBase):
+class FFT(FFTVisualizerBase):
     def __init__(self):
-        VisualizerBase.__init__(self)
+        FFTVisualizerBase.__init__(self)
         self.g = gaussian(np.linspace(-5, 5, 10), 0, 0.5)
         self.bounder = Bounder()
         self.bounder.U_contraction_rate = 0.999
-        self.hanning = np.hanning(SAMPLE_ARRAY_SIZE)
-
-        self.freqs = np.fft.rfftfreq(SAMPLE_ARRAY_SIZE, 1./SAMPLING_FREQ)
-        max_freq = 1500
-        min_freq = 30
-        # print(np.where(self.freqs>min_freq).shape)
-        self.start_index = np.where(self.freqs>min_freq)[0][0]
-        self.start_index = 0
-        self.end_index = np.where(self.freqs<max_freq)[0][-1]
-        print(self.start_index, self.end_index)
-        self.freqs = self.freqs[self.start_index:self.end_index]
-        self.mel = hertz_to_mel(self.freqs)
+        self.fft_setup(0, 1500)
         self.half_led_count = int(LED_1_COUNT * 0.57)
-
 
     def visualize(self, sample_array):
         color_array = np.zeros([self.half_led_count, 3])
@@ -119,7 +134,7 @@ class FFT(VisualizerBase):
         color_array[:,2] = np.linspace(160, 0, self.half_led_count) # B
 
 
-        fft = np.abs(np.fft.rfft(sample_array * np.hanning(SAMPLE_ARRAY_SIZE)))[self.start_index:self.end_index]
+        fft = self.fft(sample_array)
         smoothed_fft = np.convolve(fft , self.g)
         normalized_fft = self.bounder.update_and_normalize(smoothed_fft)
         interped_fft = np.interp(np.arange(self.half_led_count),
