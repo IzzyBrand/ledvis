@@ -426,17 +426,16 @@ class Blocks(VisualizerBase):
 
 # this is the list of visualizers to be used by run.py and the web page
 vis_list = [StripsOff,
-            VooMeter,
-            FFTRainbow,
-            FFT,
-            BlobSlider,
             Zoom,
+            BlobSlider,
+            FFTRainbow,
+            Blocks,
+            FFT,
             Sparkle,
             Retro,
             Pancakes,
             SamMode,
-            Stones,
-            Blocks]
+            Stones]
 
 ###################################################################################################
 # Experimental stuff

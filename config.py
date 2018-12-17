@@ -1,9 +1,8 @@
 import numpy as np
-import pyaudio
 
 # PYAUDIO CONFIGURATION
 CHUNK_SIZE 		= 2**8 	 # How many audio samples to read in per step
-FORMAT 			= pyaudio.paInt16
+FORMAT 			= 8
 NUM_CHANNELS 	= 1      # Number of audio channels
 SAMPLING_FREQ	= 44100  # Sampling frequency of incoming audio
 DEVICE_INDEX 	= 0      # Which audio device to read from (listed in pyaudio_test.py)
