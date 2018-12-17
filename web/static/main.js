@@ -19,7 +19,7 @@ function btnClick(x, index) {
 	$.ajax({
 		'url': '/btn_click',
 		'data': {
-			'voo_index': index
+			'vis_index': index
 		}
 	});
 }

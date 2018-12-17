@@ -14,13 +14,13 @@ def index():
 @app.route('/btn_click')
 def btn_click():
 	global state
-	state = request.args['voo_index']
+	state = request.args['vis_index']
 	return 'Success'
 
 
 @app.route('/get_settings', methods=['GET'])
 def get_settings():
-	return json.dumps({'voo_index': state})
+	return json.dumps({'vis_index': state})
 
 
 if __name__ == '__main__':

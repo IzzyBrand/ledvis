@@ -55,19 +55,19 @@ def visualizer(sample_array, settings_array):
     '''
 
     strips = Strips()
-    voo_index = -1
-    new_voo_index = 0
+    vis_index = -1
+    new_vis_index = 0
 
     while True:
         # get the current selected mode
         if settings_array.acquire():
-            new_voo_index = settings_array[0]
+            new_vis_index = settings_array[0]
             settings_array.release()
 
         # if the selected mode has changed, instantiate the new visualizer
-        if voo_index != new_voo_index:
-            voo_index = new_voo_index
-            vis = vis_list[voo_index]()
+        if vis_index != new_vis_index:
+            vis_index = new_vis_index
+            vis = vis_list[vis_index]()
             print('Mode changed to {}'.format(vis.name))
 
         # get the newest sample array
@@ -102,9 +102,9 @@ def settings_getter(settings_array):
 
         if response.ok:
             data = response.json()
-            voo_index = int(data['voo_index'])
+            vis_index = int(data['vis_index'])
             settings_array.acquire()
-            settings_array[0] = voo_index
+            settings_array[0] = vis_index
             settings_array.release()
         else:
             print('Status Code {}'.format(response.status_code))
