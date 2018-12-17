@@ -37,8 +37,13 @@ class FFTVisualizerBase(VisualizerBase):
         
 
     def fft(self, sample_array, hanning=False):
+        # pad the sample array if necessary
+        if self.fft_num_samples > SAMPLE_ARRAY_SIZE:
+            a = np.pad(sample_array, (self.fft_num_samples, 0), mode='constant')
+
+        # cut the sample array to the desired shape
         a = sample_array[-self.fft_num_samples:]
-        if hanning: a *= self.hanning
+        if hanning: a *= self.hanning # apply a hanning window if specified
         f = np.abs(np.fft.rfft(a))
         return f[self.fft_start_index:self.fft_end_index]
 
@@ -121,10 +126,10 @@ class FFTRainbow(FFTVisualizerBase):
 class FFT(FFTVisualizerBase):
     def __init__(self):
         FFTVisualizerBase.__init__(self)
-        self.g = gaussian(np.linspace(-5, 5, 10), 0, 0.5)
+        self.g = gaussian(np.linspace(-5, 5, 10), 0, 1)
         self.bounder = Bounder()
         self.bounder.U_contraction_rate = 0.999
-        self.fft_setup(0, 1500)
+        self.fft_setup(0, 750, 3000)
         self.half_led_count = int(LED_1_COUNT * 0.57)
 
     def visualize(self, sample_array):

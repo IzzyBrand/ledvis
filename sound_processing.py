@@ -85,6 +85,22 @@ class ExponentialMovingAverage(SmootherBase):
         self._s = (self.alpha * x) + ((1. - self.alpha) * self._s)
         return self._s
 
+class SplitExponentialMovingAverage(SmootherBase):
+    def __init__(self, alpha_down=0.5, alpha_up=0.5):
+        self.alpha_down = alpha_down
+        self.alpha_up = alpha_up
+        self._s = 0
+
+    def update(self, x):
+        if isinstance(self._s, (list, np.ndarray, tuple)):
+            alpha = x - self._s
+            alpha[alpha > 0.0] = self.alpha_up
+            alpha[alpha <= 0.0] = self.alpha_down
+        else:
+            alpha = self.alpha_up if x > self._s else self.alpha_down
+
+        self._s = alpha * x + (1.0 - alpha) * self._s
+        return self._s
 
 class ExponentialMovingAverageSpikePass(SmootherBase):
     def __init__(self, alpha=0.1, pass_coeff=10):
