@@ -161,15 +161,16 @@ class BlobSlider(VisualizerBase):
         VisualizerBase.__init__(self)
         self.blob_list = []
         self.max_blob_count = 15
-        self.blob_prob = 0.02
+        self.blob_prob = 0.03
         self.prev_time = time.time()
         self.blob_buffer = 10
         self.bounder = Bounder(constrain_bounds=True)
-        self.smoother = ExponentialMovingAverageSpikePass(0.05)
+        self.smoother = SplitExponentialMovingAverage(0.1,0.5)
         self.init_max_amp = 100
 
     def visualize(self, sample_array):
-        m = self.bounder.update_and_normalize(np.max(sample_array[-10]))
+        m = np.max(sample_array[-300:])
+        m = self.bounder.update_and_normalize(m)
         m = self.smoother.smooth(m)
 
         new_time = time.time()
@@ -191,7 +192,7 @@ class BlobSlider(VisualizerBase):
         color_array = np.zeros([LED_1_COUNT, 3])
         x = np.arange(LED_1_COUNT)
         for blob in self.blob_list:
-            blob['pos'] += dt * blob['speed']**(2*m + 0.5) # move the blobs
+            blob['pos'] += dt * blob['speed']*(0.2 + m**2) # move the blobs
             color_array = np.maximum(color_array, np.outer(gaussian(x, blob['pos'], 2.5), blob['color']))
 
         return np.clip(color_array, 0, 255)
