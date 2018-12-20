@@ -474,6 +474,79 @@ class Pillars(FFTVisualizerBase):
         return color_array
 
 
+class Planets(FFTVisualizerBase):
+    def __init__(self):
+        FFTVisualizerBase.__init__(self)
+        self.hex_colors = ["7B00FF", "5255EE", "29AADD", "00FFCC", "4EFF88", "9CFF44", "EAFF00", "F1AA00", "F85500", "FF0000"]
+        self.colors = np.array([hex_to_rgb(h) for h in self.hex_colors])[:,[1,0,2]]
+        self.num_planets = 10
+        # self.colors = self.colors[self.num_planets, :]
+        self.pos = np.linspace(0., 1., self.num_planets)
+        self.vel = np.random.randn(self.num_planets) * 0.1
+        self.bounder = Bounder()
+        self.smoother = SplitExponentialMovingAverage( 0.2, 0.6, np.zeros(self.num_planets))
+        self.fft_setup(0, 1500)
+        self.tt = 0
+
+    def visualize(self, sample_array):
+        fft = self.fft(sample_array)
+
+        n = fft.shape[0]
+        n -= n % self.num_planets # make n divisible by the number of bins
+        fft = fft[:n] # take the first n elements of the fft
+
+        bin_activations = np.sum(fft.reshape([self.num_planets,-1]), axis=1) # how much in each frequency bin
+
+        t = time.time()
+        dt = t - self.tt
+        self.tt = t
+
+        self.pos += self.vel * dt # move by the velocity
+
+        self.vel[self.pos >= 1] *= -0.9 # bounce off the top
+        self.vel[self.pos <= 0] *= -0.9 # bounce off the bottom
+
+        self.pos = np.clip(self.pos, 0, 1) # limit the upper and lower positions
+
+        self.vel *= 0.99 # decelerate
+
+        # normalize the bin_activations
+        bin_activations = self.bounder.update_and_normalize(bin_activations)
+        bin_activations = self.smoother.smooth(bin_activations)
+
+
+        dists = self.pos[:, None] - self.pos[None, :]# calculate a distance matrix
+
+        # quadratic forces
+        # dists[(0 <= dists) & (dists < 1e-3)] = 1e3 # hedge away from zero
+        # dists[(0 >= dists) & (dists > -1e-3)] = -1e-3 
+        # forces = np.sign(dists) * (1./(dists ** 2)) * 1e-4
+
+        # linear forces
+        forces = np.sign(dists) * (1.- np.abs(dists)) * 0.01
+
+        # multiply the forces by the binactivations
+        forces *= bin_activations[:,None]
+
+        self.vel -= np.sum(forces, axis=0) # repell away from eachother
+        self.vel += (1 - self.pos) * 0.02 # repell away from the top
+        self.vel -= (self.pos) * 0.02 # repell away from the bottom
+
+        # locations = np.tile(np.linspace(0, 1, 150), [1,self.num_planets]).T
+        locations = np.linspace(0, 1, 150)
+
+        xs = locations[None, :]
+        mus = self.pos[:, None]
+        sigmas = bin_activations[:, None] * 0.05
+        gaussians = gaussian(xs, mus, sigmas)
+        color_gaussians = np.multiply(self.colors.T[:,:,None], gaussians)
+        color_array = np.max(color_gaussians, axis = 1).T
+
+
+
+
+        # order = np.argsort(bin_activations)
+        return color_array.astype(int)
 
 
 # this is the list of visualizers to be used by run.py and the web page
@@ -489,7 +562,8 @@ vis_list = [StripsOff,
             SamMode,
             Stones,
             VooMeter,
-            Pillars]
+            Pillars,
+            Planets]
 
 ###################################################################################################
 # Experimental stuff
