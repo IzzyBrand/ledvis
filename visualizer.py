@@ -20,11 +20,11 @@ class VisualizerBase:
 class FFTVisualizerBase(VisualizerBase):
     def __init__(self):
         VisualizerBase.__init__(self)
-        
+
     def fft_setup(self, min_freq, max_freq, num_samples=SAMPLE_ARRAY_SIZE):
         self.fft_num_samples = num_samples
-        self.hanning = np.hanning(self.fft_num_samples) # hanning sample window 
-        
+        self.hanning = np.hanning(self.fft_num_samples) # hanning sample window
+
         # get the indices of the lower and upper frequencies
         self.min_freq = min_freq
         self.max_freq = max_freq
@@ -34,7 +34,7 @@ class FFTVisualizerBase(VisualizerBase):
         self.freqs = self.freqs[self.fft_start_index:self.fft_end_index] # array of frequencies
 
         self.mel = hertz_to_mel(self.freqs) # a mel filter to normalize the frequency intensity
-        
+
 
     def fft(self, sample_array, hanning=False):
         # pad the sample array if necessary
@@ -260,7 +260,7 @@ class Sparkle(VisualizerBase):
         self.bounder = Bounder()
 
     def visualize(self, sample_array):
-        a = sample_array[-8:]
+        a = sample_array[-500:]
         m = np.max(a) # get the maximum amplitude
         m = self.bounder.update_and_normalize(m) # normalize the amplitude to [0,1]
         m = max(m**3 * 0.5, - 0.05, 0.01)
@@ -443,6 +443,36 @@ class Blocks(VisualizerBase):
 
         return np.clip(self.color_array, 0, 255).astype(int)
 
+class Pillars(FFTVisualizerBase):
+    def __init__(self):
+        FFTVisualizerBase.__init__(self)
+        self.hex_colors = ["7B00FF", "5255EE", "29AADD", "00FFCC", "4EFF88", "9CFF44", "EAFF00", "F1AA00", "F85500", "FF0000"]
+        self.colors = np.array([hex_to_rgb(h) for h in self.hex_colors])[:,[1,0,2]]
+        self.num_bins = self.colors.shape[0]
+        self.bounder = Bounder()
+        self.smoother = SplitExponentialMovingAverage( 0.2, 0.6, np.zeros(self.num_bins))
+        self.fft_setup(0, 1500)
+        self.bin_comparison = np.tile(np.linspace(0, 1, LED_1_COUNT), [self.num_bins, 1]).T
+
+    def visualize(self, sample_array):
+        fft = self.fft(sample_array)
+        n = fft.shape[0]
+        n -= n % self.num_bins # make n divisible by the number of bins
+        fft = fft[:n] # take the first n elements of the fft
+
+        bin_activations = np.sum(fft.reshape([self.num_bins,-1]), axis=1) # how much in each frequency bin
+
+        # normalize the bin_activations
+        bin_activations = self.bounder.update_and_normalize(bin_activations)
+        bin_activations = self.smoother.smooth(bin_activations)
+
+        mask = self.bin_comparison < bin_activations[None,:]
+        color_array = np.mean(mask[:,:,None] * self.colors[None,:,:], axis=1)
+
+
+        # order = np.argsort(bin_activations)
+        return color_array
+
 
 
 
@@ -458,7 +488,8 @@ vis_list = [StripsOff,
             Pancakes,
             SamMode,
             Stones,
-            VooMeter]
+            VooMeter,
+            Pillars]
 
 ###################################################################################################
 # Experimental stuff

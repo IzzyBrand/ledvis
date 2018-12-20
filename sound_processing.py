@@ -86,10 +86,10 @@ class ExponentialMovingAverage(SmootherBase):
         return self._s
 
 class SplitExponentialMovingAverage(SmootherBase):
-    def __init__(self, alpha_down=0.5, alpha_up=0.5):
+    def __init__(self, alpha_down=0.5, alpha_up=0.5, init = 0):
         self.alpha_down = alpha_down
         self.alpha_up = alpha_up
-        self._s = 0
+        self._s = init
 
     def smooth(self, x):
         if isinstance(self._s, (list, np.ndarray, tuple)):
