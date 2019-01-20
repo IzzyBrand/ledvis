@@ -65,7 +65,7 @@ def visualizer(sample_array, settings_array):
     fp = FrequencyPrinter('Visualizer')
     while True:
         if PRINT_LOOP_FREQUENCY: fp.tick()
-
+        t = time.time()
         # get the current selected mode
         if settings_array.acquire():
             new_vis_index = settings_array[0]
@@ -82,6 +82,9 @@ def visualizer(sample_array, settings_array):
         a = np.array(sample_array)
         sample_array.release()
 
+        async_time = time.time() - t
+        t = time.time()
+
         # unwrap the circular buffer
         a_start = (a[-1] + 1) % (a.size - 1)
         a = np.concatenate([a[a_start:-1], a[:a_start]])
@@ -89,9 +92,15 @@ def visualizer(sample_array, settings_array):
         # create a color array
         color_array = vis.visualize(a)
 
+        visualize_time = time.time() - t
+        t = time.time()
+
         # send the color array to the strips
         strips.write(color_array)
 
+        write_time = time.time() - t
+
+        print '{}\t{}\t{}'.format(async_time, visualize_time, write_time)
 
 def settings_getter(settings_array):
     '''
