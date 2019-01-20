@@ -6,6 +6,7 @@ import requests
 from config import *
 from visualizer import vis_list
 from strips import Strips
+from util import FrequencyPrinter
 
 
 def sampler(sample_array):
@@ -22,7 +23,10 @@ def sampler(sample_array):
                         frames_per_buffer=CHUNK_SIZE)
     sample_index = 0
 
+    fp = FrequencyPrinter('Sampler')
     while True:
+        if PRINT_LOOP_FREQUENCY: fp.tick()
+
         try:
             data = stream.read(CHUNK_SIZE)
         except IOError:
@@ -58,7 +62,10 @@ def visualizer(sample_array, settings_array):
     vis_index = -1
     new_vis_index = 0
 
+    fp = FrequencyPrinter('Visualizer')
     while True:
+        if PRINT_LOOP_FREQUENCY: fp.tick()
+
         # get the current selected mode
         if settings_array.acquire():
             new_vis_index = settings_array[0]
@@ -90,7 +97,10 @@ def settings_getter(settings_array):
     '''
     Make get requests to the server to get the most recent user input
     '''
+    fp = FrequencyPrinter('Settings Getter')
     while True:
+        if PRINT_LOOP_FREQUENCY: fp.tick()
+
         # do a get request to the server
         url = 'http://ledvis.local:5000/get_settings'
 
