@@ -6,7 +6,7 @@ import requests
 from config import *
 from visualizer import vis_list
 from strips import Strips
-from util import FrequencyPrinter
+from util import FrequencyPrinter, CircularBuffer
 
 
 def sampler(sample_array):
@@ -21,7 +21,6 @@ def sampler(sample_array):
     stream = audio.open(format=FORMAT, rate=SAMPLING_FREQ, channels=NUM_CHANNELS, \
                         input_device_index=DEVICE_INDEX, input=True, \
                         frames_per_buffer=CHUNK_SIZE)
-    sample_index = 0
 
     fp = FrequencyPrinter('Sampler')
     while True:
@@ -40,12 +39,16 @@ def sampler(sample_array):
 
         # attempts a non-blocking write to the sample array
         if sample_array.acquire(False):
-            sample_array[sample_index:sample_index + CHUNK_SIZE] = int_data # write the newest sample to the array
-            sample_array[-1] = sample_index # store the most recent index last in the array
-            sample_array.release()
+            sample_start = sample_array[-1]
+            sample_end = sample_start + CHUNK_SIZE
 
-            sample_index += CHUNK_SIZE
-            sample_index = sample_index % SAMPLE_ARRAY_SIZE
+            if sample_end < SAMPLE_ARRAY_SIZE - 1:
+                sample_array[sample_start:sample_end] = int_data # write the newest sample to the array
+                sample_array[-1] = sample_end # store the most recent index last in the array
+            else:
+                print 'dropped'
+
+            sample_array.release()
 
     # here I was saving some sample data for testing offline
     # a = np.array(samples)
@@ -65,7 +68,7 @@ def visualizer(sample_array, settings_array):
     fp = FrequencyPrinter('Visualizer')
     while True:
         if PRINT_LOOP_FREQUENCY: fp.tick()
-        t = time.time()
+
         # get the current selected mode
         if settings_array.acquire():
             new_vis_index = settings_array[0]
@@ -75,32 +78,23 @@ def visualizer(sample_array, settings_array):
         if vis_index != new_vis_index:
             vis_index = new_vis_index
             vis = vis_list[vis_index]()
+            circ_buffer = CircularBuffer(vis.required_samples)
             print('Mode changed to {}'.format(vis.name))
 
         # get the newest sample array
         sample_array.acquire()
-        a = np.array(sample_array)
+        a = np.array(sample_array[:sample_array[-1]])
+        sample_array[-1] = 0 # indicate that you have read the sample
         sample_array.release()
 
-        async_time = time.time() - t
-        t = time.time()
+        # add the array to the buffer
+        circ_buffer.push(a)
 
-        # unwrap the circular buffer
-        a_start = (a[-1] + 1) % (a.size - 1)
-        a = np.concatenate([a[a_start:-1], a[:a_start]])
-
-        # create a color array
-        color_array = vis.visualize(a)
-
-        visualize_time = time.time() - t
-        t = time.time()
+        # run the visualizer on the contents of the buffer
+        color_array = vis.visualize(circ_buffer.get())
 
         # send the color array to the strips
         strips.write(color_array)
-
-        write_time = time.time() - t
-
-        print '{}\t{}\t{}'.format(async_time, visualize_time, write_time)
 
 def settings_getter(settings_array):
     '''

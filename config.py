@@ -7,8 +7,10 @@ NUM_CHANNELS 	= 1      # Number of audio channels
 SAMPLING_FREQ	= 44100  # Sampling frequency of incoming audio
 DEVICE_INDEX 	= 0      # Which audio device to read from (listed in pyaudio_test.py)
 
-NUM_CHUNKS = 8
-SAMPLE_ARRAY_SIZE = CHUNK_SIZE * NUM_CHUNKS
+# RUN CONFIGURATION
+PRINT_LOOP_FREQUENCY = True
+SAMPLE_ARRAY_SIZE = 4 * CHUNK_SIZE
+DEFAULT_REQUIRED_SAMPLES = SAMPLE_ARRAY_SIZE
 
 # LED STRIPS CONFIGURATION
 LED_1_COUNT      = 150     # Number of LED pixels.
@@ -39,5 +41,3 @@ ADC_MAX = 2048
 SERVER_ADDRESS = 'izzypi'
 SERVER_PORT    = 10000
 
-# MISC CONFIGURATION
-PRINT_LOOP_FREQUENCY = True

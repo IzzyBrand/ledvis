@@ -12,6 +12,7 @@ class VisualizerBase:
     '''
     def __init__(self):
         self.name = self.__class__.__name__
+        self.required_samples = DEFAULT_REQUIRED_SAMPLES # how many samples do we want to receive
 
     def visualize(self, sample_array):
         return np.zeros([LED_1_COUNT, 3], dtype=int)
@@ -38,7 +39,7 @@ class FFTVisualizerBase(VisualizerBase):
 
     def fft(self, sample_array, hanning=False):
         # pad the sample array if necessary
-        if self.fft_num_samples > SAMPLE_ARRAY_SIZE:
+        if self.fft_num_samples > self.required_samples:
             a = np.pad(sample_array, (self.fft_num_samples, 0), mode='constant')
 
         # cut the sample array to the desired shape
@@ -104,7 +105,8 @@ class FFTRainbow(FFTVisualizerBase):
         self.gaussians = np.vstack([gaussian(np.arange(LED_1_COUNT), mu, self.bin_size) for mu in self.centers])
         self.color_gaussians = np.multiply(self.colors.T[:,:,None], self.gaussians)
         self.bounder = Bounder()
-        self.fft_setup(0, 1500)
+        self.required_samples = 3500
+        self.fft_setup(0, 1500, 3500)
 
     def visualize(self, sample_array):
         fft = self.fft(sample_array)
@@ -130,7 +132,8 @@ class FFT(FFTVisualizerBase):
         self.g = gaussian(np.linspace(-5, 5, 10), 0, 1)
         self.bounder = Bounder()
         self.bounder.U_contraction_rate = 0.999
-        self.fft_setup(0, 750, 3000)
+        self.required_samples = 3000
+        self.fft_setup(0, 900, 3000)
         self.half_led_count = int(LED_1_COUNT * 0.57)
 
     def visualize(self, sample_array):
@@ -451,7 +454,8 @@ class Pillars(FFTVisualizerBase):
         self.num_bins = self.colors.shape[0]
         self.bounder = Bounder()
         self.smoother = SplitExponentialMovingAverage( 0.2, 0.6, np.zeros(self.num_bins))
-        self.fft_setup(0, 1500)
+        self.required_samples = 2000
+        self.fft_setup(0, 1500, 2000)
         self.bin_comparison = np.tile(np.linspace(0, 1, LED_1_COUNT), [self.num_bins, 1]).T
 
     def visualize(self, sample_array):
@@ -485,7 +489,8 @@ class Planets(FFTVisualizerBase):
         self.vel = np.random.randn(self.num_planets) * 0.1
         self.bounder = Bounder()
         self.smoother = SplitExponentialMovingAverage( 0.2, 0.6, np.zeros(self.num_planets))
-        self.fft_setup(0, 1500)
+        self.required_samples = 2000
+        self.fft_setup(0, 1500, 2000)
         self.tt = 0
 
     def visualize(self, sample_array):
