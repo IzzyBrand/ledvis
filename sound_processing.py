@@ -16,7 +16,7 @@ class Bounder:
         self.init_L = init_L
         self.U = self.init_U
         self.L = self.init_L
-        self.U_contraction_rate = 0.995
+        self.U_contraction_rate = 0.999
         self.L_contraction_rate = 0.995
 
         self.constrain_bounds = constrain_bounds

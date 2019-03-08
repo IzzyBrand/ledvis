@@ -168,7 +168,7 @@ class BlobSlider(VisualizerBase):
         self.prev_time = time.time()
         self.blob_buffer = 10
         self.bounder = Bounder(constrain_bounds=True)
-        self.smoother = SplitExponentialMovingAverage(0.1,0.5)
+        self.smoother = SplitExponentialMovingAverage(0.2,0.7)
         self.init_max_amp = 100
 
     def visualize(self, sample_array):
@@ -339,7 +339,7 @@ class Pancakes(VisualizerBase):
         self.color = np.array([50, 80, 0])
 
         self.mask_maker = masker.bottom_up
-        self.smoother = SplitExponentialMovingAverage(0.1, 0.6)
+        self.smoother = SplitExponentialMovingAverage(0.2, 0.7)
         self.bounder = Bounder()
         self.bounder.L_contraction_rate = 0.9
 
@@ -377,7 +377,7 @@ class Stones(VisualizerBase):
         self.color = np.array([20, 20, 30])
 
         self.mask_maker = masker.bottom_up
-        self.smoother = SplitExponentialMovingAverage(0.1, 0.6)
+        self.smoother = SplitExponentialMovingAverage(0.2, 0.7)
         self.bounder = Bounder()
         self.bounder.L_contraction_rate = 0.9
 
@@ -542,13 +542,10 @@ class Planets(FFTVisualizerBase):
 
         xs = locations[None, :]
         mus = self.pos[:, None]
-        sigmas = bin_activations[:, None] * 0.05
+        sigmas = bin_activations[:, None] * 0.05 + .005 # hedge away from zero to prevent blinking
         gaussians = gaussian(xs, mus, sigmas)
         color_gaussians = np.multiply(self.colors.T[:,:,None], gaussians)
         color_array = np.max(color_gaussians, axis = 1).T
-
-
-
 
         # order = np.argsort(bin_activations)
         return color_array.astype(int)
@@ -562,9 +559,7 @@ vis_list = [StripsOff,
             Blocks,
             FFT,
             Sparkle,
-            Retro,
             Pancakes,
-            SamMode,
             Stones,
             VooMeter,
             Pillars,
