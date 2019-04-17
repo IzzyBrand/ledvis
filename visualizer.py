@@ -551,6 +551,55 @@ class Planets(FFTVisualizerBase):
         return color_array.astype(int)
 
 
+class Rain(FFTVisualizerBase):
+    def __init__(self):
+        FFTVisualizerBase.__init__(self)
+        self.bounder = Bounder()
+        self.smoother = SplitExponentialMovingAverage(0.2, 0.8)
+
+        self.max_num_drops = 100
+
+        self.pos = np.zeros(self.max_num_drops)
+        self.vel = np.zeros(self.max_num_drops)
+        self.accel = -0.03
+
+        self.tt = time.time()
+
+        self.color = np.array([70, 20, 90])
+        self.drop_colors = np.zeros([self.max_num_drops, 3])
+
+    def add_drop(self):
+        indices = np.arange(self.max_num_drops)[self.pos < -0.1]
+        if len(indices) > 0:
+            i = indices[0]
+            self.pos[i] = np.random.rand() * 0.2 + 1.
+            self.vel[i] = 0
+            self.drop_colors[i,:] = self.color * (np.random.rand() * 0.4 + 0.1)**2
+
+    def visualize(self, sample_array):
+
+        m = self.bounder.update_and_normalize(np.max(sample_array[-500:]))
+        m = self.smoother.smooth(m)
+
+        t = time.time()
+        dt = (t - self.tt) * np.clip((1. - m*1.2), 0, 1)
+        self.tt = t
+
+        if np.random.rand() > 0.9: self.add_drop()
+
+        brightness = 0.6+ m*0.6
+        color_array = np.zeros([LED_1_COUNT, 3])
+
+        self.pos += self.vel * dt
+        self.vel += self.accel * dt
+
+        # [ledcount x num_drops]
+        brightness_contributions = gaussian(np.arange(LED_1_COUNT)[:, None], (self.pos * LED_1_COUNT)[None, :], 0.5)
+        color_array = np.matmul(brightness_contributions, self.drop_colors) * brightness
+
+        return np.clip(color_array, 0, 255).astype(int)
+
+
 # this is the list of visualizers to be used by run.py and the web page
 vis_list = [StripsOff,
             Zoom,
@@ -563,7 +612,8 @@ vis_list = [StripsOff,
             Stones,
             VooMeter,
             Pillars,
-            Planets]
+            Planets,
+            Rain]
 
 ###################################################################################################
 # Experimental stuff

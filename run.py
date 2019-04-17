@@ -45,8 +45,8 @@ def sampler(sample_array):
             if sample_end < SAMPLE_ARRAY_SIZE - 1:
                 sample_array[sample_start:sample_end] = int_data # write the newest sample to the array
                 sample_array[-1] = sample_end # store the most recent index last in the array
-            else:
-                print 'dropped'
+            # else:
+            #     print 'dropped'
 
             sample_array.release()
 
