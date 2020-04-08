@@ -41,7 +41,7 @@ sudo apt install screen python-matplotlib		# get screen
 
 ## To get it to run automatically on the Pi
 
-Install screen by `sudo apt install screen`. dd the following to `/etc/rc.local` right above the `exit 0` line
+Add the following to `/etc/rc.local` right above the `exit 0` line
 
 ```
 su - pi -c "screen -dm -S ledvis -c /home/pi/ledvis/pi.screenrc"
