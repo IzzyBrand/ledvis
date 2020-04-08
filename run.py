@@ -27,9 +27,9 @@ def sampler(sample_array):
         if PRINT_LOOP_FREQUENCY: fp.tick()
 
         try:
-            data = stream.read(CHUNK_SIZE)
-        except IOError:
-            print 'Stream overflow!'
+            data = stream.read(CHUNK_SIZE,False)
+        except IOError as e:
+            print(e)
             stream.close()
             stream = audio.open(format=FORMAT, rate=SAMPLING_FREQ, channels=NUM_CHANNELS, \
                         input_device_index=DEVICE_INDEX, input=True, \
@@ -105,7 +105,7 @@ def settings_getter(settings_array):
         if PRINT_LOOP_FREQUENCY: fp.tick()
 
         # do a get request to the server
-        url = 'http://ledvis.local:5000/get_settings'
+        url = 'http://127.0.0.1:5000/get_settings'
 
         try:
             response = requests.get(url)

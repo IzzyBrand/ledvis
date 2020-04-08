@@ -12,10 +12,11 @@ multiuser on
 
 screen -t " open"
 
-screen -t " run.py"
-stuff "cd /home/pi/ledvis\n"
-stuff "sudo python run.py\n"
-
 screen -t " app.py"
 stuff "cd /home/pi/ledvis/web\n"
-stuff "python3 app.py\n"
+stuff "python3 app.py &\n"
+
+screen -t " run.py"
+stuff "cd /home/pi/ledvis\n"
+stuff "sudo python run.py &\n"
+
