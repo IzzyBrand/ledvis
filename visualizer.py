@@ -73,7 +73,7 @@ class StripsOff(VisualizerBase):
 
 
 class VooMeter(VisualizerBase):
-    def __init__(self, color=np.array([120, 200, 100]), mask_maker=masker.middle_out):
+    def __init__(self, color=np.array([255, 0, 240]), mask_maker=masker.bottom_upV):
         VisualizerBase.__init__(self)
         self.color = np.random.randint(low=0, high=255, size=3)
         self.mask_maker = mask_maker

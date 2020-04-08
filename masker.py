@@ -16,6 +16,22 @@ def bottom_up(m):
     num_leds_on = m * LED_1_COUNT
     return np.tile(np.arange(LED_1_COUNT) < num_leds_on, (3,1)).T
 
+def bottom_upV(m):
+    '''
+    Creates a mask of which leds to turn on given an amplitude.
+    This mask lights a strip of LEDs starting at the bottom and reaching higher
+    with increasing amplitude
+
+    Arguments:
+        m (float): The amplitude in 0 to 1
+
+    Returns:
+        A [LED_1_COUNT] array of zeros and ones
+    '''
+    num_leds_on = m * LED_1_COUNT
+    return np.tile(np.abs(np.arange(LED_1_COUNT/3)) < num_leds_on/3-0.01, (3,1)).T
+
+
 def top_down(m):
     '''
     Creates a mask of which leds to turn on given an amplitude.
