@@ -28,7 +28,7 @@ And run this to install the other dependencies
 ```
 pip install adafruit-ads1x15	# install the ADS1015 i2c library
 pip3 install Flask				# get Flask (best to use python3)
-sudo apt install screen 		# get screen
+sudo apt install screen python-matplotlib		# get screen
 ```
 
 ## Repo Organization
