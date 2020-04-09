@@ -35,7 +35,7 @@ def sampler(sample_array):
                         input_device_index=DEVICE_INDEX, input=True, \
                         frames_per_buffer=CHUNK_SIZE)
         int_data = np.fromstring(data, dtype="%s%s" % (dtype1, dtmult))
-        int_data = np.reshape(int_data, (CHUNK_SIZE / NUM_CHANNELS, NUM_CHANNELS))
+        #int_data = np.reshape(int_data, (CHUNK_SIZE / NUM_CHANNELS, NUM_CHANNELS))
         # print stream.get_read_available()
 
         # attempts a non-blocking write to the sample array
@@ -45,11 +45,11 @@ def sampler(sample_array):
 
             if sample_end < SAMPLE_ARRAY_SIZE - 1:
                 if NUM_CHANNELS >= 2:
-                    sample_array[sample_start:sample_end] = int_data[:, 0] # write the newest right speaker sample to the array
+                    sample_array[sample_start:sample_end] = int_data[0::NUM_CHANNELS] # write the newest right speaker sample to the array
                     sample_array[-1] = sample_end # store the most recent index last in the array
                     sample_startl = sample_arrayl[-1]
                     sample_endl = sample_startl + CHUNK_SIZE / NUM_CHANNELS
-                    sample_arrayl[sample_startl:sample_endl] = int_data[:, 1] # write the newest left speaker sample to the array
+                    sample_arrayl[sample_startl:sample_endl] = int_data[1::NUM_CHANNELS] # write the newest left speaker sample to the array
                     sample_arrayl[-1] = sample_endl # store the most recent index last in the array
                 else:
                     sample_array[sample_start:sample_end] = int_data[:, 0] # write the newest right speaker sample to the array
@@ -107,12 +107,10 @@ def visualizer(sample_array, settings_array):
             # run the visualizer on the contents of the buffer
             color_array = vis.visualize(circ_buffer.get())
             circ_buffer.push(b)
-            # run the visualizer on the contents of the buffer
             color_arrayl = vis.visualize(circ_buffer.get())
-
-            # send the color array to the strips
             stripsr.write(color_array)
             stripsl.write(color_arrayl)
+
     else:
         while True:
             if PRINT_LOOP_FREQUENCY: fp.tick()

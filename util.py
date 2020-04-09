@@ -45,6 +45,7 @@ class CircularBuffer:
 		return np.concatenate([self.array[self.index:], self.array[:self.index]])
 
 
+
 def test_circular_buffer():
 	passed = True
 
