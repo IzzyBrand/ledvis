@@ -94,6 +94,7 @@ class VooMeter(VisualizerBase):
             return color_mask * self.color
 
 
+
 class FFTRainbow(FFTVisualizerBase):
     def __init__(self):
         FFTVisualizerBase.__init__(self)
